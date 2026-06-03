@@ -8,11 +8,31 @@ Production-ready SaaS that costs **$0 to run** for personal use:
 - **Optional Groq** — free API key from [console.groq.com](https://console.groq.com) for smarter text (still $0 on free tier)
 - **Vercel hobby tier** — free hosting
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/landing-page.png" alt="JobHunter AI marketing landing page with hero, feature cards, and pricing CTA" width="900" />
+</p>
+<p align="center"><em>Marketing landing page — ATS scoring, optimization, versions, and teams</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-overview.png" alt="JobHunter AI dashboard overview with glass stats cards and recent activity" width="900" />
+</p>
+<p align="center"><em>Dashboard overview — plan usage, quick actions, recent jobs & analyses</em></p>
+
+| Resumes | ATS analyze | Job tracker |
+| --- | --- | --- |
+| Upload PDF/DOCX, parse, version history | Score vs job description + keyword gaps | Kanban pipeline for applications |
+| Glass UI + typewriter illustration | Match ring + skill tags | Drag cards across Saved → Interview |
+
+> Run locally (`npm run dev`) and open `/dashboard/resumes`, `/dashboard/optimize/new`, and `/dashboard/jobs` to explore the other screens.
+
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind
 - Supabase (Auth, PostgreSQL, Storage)
 - Local AI + optional Groq / OpenAI
+- Framer Motion + glassmorphism UI (2D illustrations, no WebGL)
 
 ## Quick start
 
