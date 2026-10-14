@@ -1,0 +1,208 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import time
+from uuid import uuid4
+
+from docx import Document
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from .engine import Candidate, edit_docx, find_candidates, serialize_candidates, validate_docx
+from .ai import suggest
+
+ROOT = Path(__file__).resolve().parent
+SESSIONS = Path(os.getenv('RESUMEFIT_SESSION_DIR', str(Path(tempfile.gettempdir()) / 'resumefit-sessions')))
+SESSIONS.mkdir(parents=True, exist_ok=True)
+MAX_FILE_BYTES = 8 * 1024 * 1024
+SESSION_TTL = 60 * 60
+app = FastAPI(title='ResumeFit - Format-first JD tailoring', version='0.1.0')
+app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
+
+
+class TailorRequest(BaseModel):
+    session_id: str
+    jd: str = Field(min_length=50, max_length=30000)
+
+
+class EditLine(BaseModel):
+    id: str
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ExportRequest(BaseModel):
+    session_id: str
+    lines: list[EditLine] = Field(default_factory=list, max_length=200)
+    output_format: str = 'docx'
+
+
+def _require_session(session_id: str) -> Path:
+    if len(session_id) != 32 or not all(c in '0123456789abcdef' for c in session_id):
+        raise HTTPException(400, 'Invalid session.')
+    path = SESSIONS / session_id
+    if not (path / 'source.docx').exists():
+        raise HTTPException(404, 'Resume session not found or expired.')
+    if time.time() - path.stat().st_mtime > SESSION_TTL:
+        shutil.rmtree(path, ignore_errors=True)
+        raise HTTPException(410, 'Session expired. Upload the resume again.')
+    return path
+
+
+def _clean_old_sessions():
+    cutoff = time.time() - SESSION_TTL
+    for item in SESSIONS.iterdir():
+        if item.is_dir() and item.stat().st_mtime < cutoff:
+            shutil.rmtree(item, ignore_errors=True)
+
+
+def _pdf_for_docx(docx_path: Path, pdf_path: Path) -> Path:
+    binary = shutil.which('soffice') or shutil.which('libreoffice')
+    if not binary:
+        raise HTTPException(503, 'PDF export requires LibreOffice on the server. DOCX export works without it.')
+    with tempfile.TemporaryDirectory(prefix='resumefit-office-') as profile:
+        command = [
+            binary, '-env:UserInstallation=' + Path(profile).as_uri(),
+            '--headless', '--convert-to', 'pdf', '--outdir', str(pdf_path.parent), str(docx_path),
+        ]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=75)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(504, 'PDF conversion took too long.')
+        made = pdf_path.parent / f'{docx_path.stem}.pdf'
+        if result.returncode or not made.exists():
+            raise HTTPException(500, 'PDF conversion failed: ' + (result.stderr or result.stdout or '')[:250])
+        if made != pdf_path:
+            made.replace(pdf_path)
+    return pdf_path
+
+
+def _source_data(path: Path) -> dict:
+    return json.loads((path / 'data.json').read_text(encoding='utf-8'))
+
+
+@app.get('/', response_class=HTMLResponse)
+def index():
+    return (ROOT / 'static' / 'index.html').read_text(encoding='utf-8')
+
+
+@app.get('/api/health')
+def health():
+    return {'ready': True, 'ai_enabled': bool(os.getenv('OPENAI_API_KEY')),
+            'pdf_enabled': bool(shutil.which('soffice') or shutil.which('libreoffice'))}
+
+
+@app.post('/api/analyze')
+async def analyze(file: UploadFile = File(...)):
+    filename = file.filename or ''
+    if Path(filename).suffix.lower() != '.docx':
+        raise HTTPException(400, 'For same-format editing, upload the original .docx. PDF-only files cannot be reliably rewritten with identical formatting.')
+    raw = await file.read(MAX_FILE_BYTES + 1)
+    if len(raw) > MAX_FILE_BYTES:
+        raise HTTPException(413, 'File exceeds the 8 MB limit.')
+    try:
+        validate_docx(raw)
+    except ValueError as err:
+        raise HTTPException(400, str(err)) from err
+    _clean_old_sessions()
+    uid = uuid4().hex
+    session = SESSIONS / uid
+    session.mkdir(mode=0o700)
+    (session / 'source.docx').write_bytes(raw)
+    try:
+        doc = Document(str(session / 'source.docx'))
+        candidates = find_candidates(doc)
+        if not candidates:
+            raise ValueError('No summary, skills or editable bullet paragraphs were identified. The document may be scanned or use unusual formatting.')
+        body_text = '\n'.join(''.join(t.text or '' for t in p.xpath('.//w:t')) for p in doc.element.body.xpath('.//w:p'))
+        data = {'original_filename': filename, 'candidates': serialize_candidates(candidates),
+                'full_resume_text': body_text}
+        (session / 'data.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    except Exception as exc:
+        shutil.rmtree(session, ignore_errors=True)
+        if isinstance(exc, ValueError):
+            raise HTTPException(422, str(exc)) from exc
+        raise HTTPException(422, f'Could not read this Word document: {exc}') from exc
+    return {
+        'session_id': uid, 'filename': filename, 'candidates': serialize_candidates(candidates),
+        'ai_enabled': bool(os.getenv('OPENAI_API_KEY')),
+        'pdf_enabled': bool(shutil.which('soffice') or shutil.which('libreoffice')),
+    }
+
+
+@app.post('/api/tailor')
+def tailor(req: TailorRequest):
+    path = _require_session(req.session_id)
+    data = _source_data(path)
+    candidates = [Candidate(**item) for item in data['candidates']]
+    try:
+        suggestions, mode, warnings = suggest(candidates, req.jd, data['full_resume_text'])
+    except Exception as exc:
+        raise HTTPException(502, f'AI tailoring could not complete: {exc}') from exc
+    return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings}
+
+
+@app.post('/api/export')
+def export(req: ExportRequest):
+    path = _require_session(req.session_id)
+    if req.output_format not in ('docx', 'pdf'):
+        raise HTTPException(400, 'Choose DOCX or PDF output.')
+    data = _source_data(path)
+    selections = {}
+    for line in req.lines:
+        if line.id in selections:
+            raise HTTPException(400, f'Duplicate line: {line.id}')
+        selections[line.id] = line.text
+    output_docx = path / 'tailored.docx'
+    try:
+        edit_docx(path / 'source.docx', output_docx, selections,
+                  [Candidate(**item) for item in data['candidates']])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    original_stem = Path(data['original_filename']).stem[:65]
+    name = f'{original_stem}_Tailored'
+    if req.output_format == 'docx':
+        return FileResponse(output_docx, filename=name + '.docx',
+                            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    pdf_path = _pdf_for_docx(output_docx, path / 'tailored.pdf')
+    return FileResponse(pdf_path, filename=name + '.pdf', media_type='application/pdf')
+
+
+@app.post('/api/preview-tailored')
+def preview_tailored(req: ExportRequest):
+    path = _require_session(req.session_id)
+    data = _source_data(path)
+    selections = {line.id: line.text for line in req.lines}
+    if len(selections) != len(req.lines):
+        raise HTTPException(400, 'Duplicate line identifiers.')
+    document_path = path / 'preview_tailored.docx'
+    try:
+        edit_docx(path / 'source.docx', document_path, selections,
+                  [Candidate(**item) for item in data['candidates']])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    pdf = _pdf_for_docx(document_path, path / 'preview_tailored.pdf')
+    return FileResponse(pdf, media_type='application/pdf',
+                        headers={'Cache-Control': 'private, no-store'})
+
+
+@app.get('/api/preview/{session_id}')
+def preview(session_id: str):
+    path = _require_session(session_id)
+    pdf = path / 'source.pdf'
+    if not pdf.exists():
+        _pdf_for_docx(path / 'source.docx', pdf)
+    return FileResponse(pdf, media_type='application/pdf', headers={'Cache-Control': 'private, no-store'})
+
+
+@app.delete('/api/session/{session_id}')
+def remove_session(session_id: str):
+    path = _require_session(session_id)
+    shutil.rmtree(path, ignore_errors=True)
+    return {'deleted': True}
