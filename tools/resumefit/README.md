@@ -91,3 +91,22 @@ start.sh
 - Groq's free tier has an 8K tokens/minute limit for `openai/gpt-oss-20b`. ResumeFit reduces prompt size; for unusually large resumes only a portion of bullets may receive AI suggestions, and the others stay manually editable.
 - If the model is reported unavailable, configure `GROQ_MODEL=openai/gpt-oss-20b` and restart.
 - The terminal logs the provider, HTTP status, safe error code, and exception type without including raw resume data or API keys. Share only that diagnostic information for help.
+
+## Deploy ResumeFit from GitHub (private beta)
+
+This repository contains a separate Python/FastAPI website in `tools/resumefit/`.
+**GitHub Pages cannot host its Python backend.** A `render.yaml` at the repository root
+configures a free-tier Render Docker web service with LibreOffice for PDF export.
+
+1. In [Render](https://dashboard.render.com/), create a **New > Blueprint** from this repository's `main` branch.
+2. Set the secret environment variables `RESUMEFIT_ACCESS_PASSWORD` and `GROQ_API_KEY` in Render (never in GitHub).
+3. After deployment, visit the generated Render HTTPS URL. For the password prompt use username `resumefit` and the password you configured.
+4. Upload an original DOCX, paste the JD, click Generate Suggestions and preview/download DOCX or PDF.
+
+This is intended for one owner, **not** for public resume uploads from many users.
+The access password protects resume text and provider usage. Render's free instance
+may sleep after inactivity and deletes stored sessions on sleep or redeploy. Groq
+usage is subject to its free-tier limits. A public multi-user release would require
+user accounts, rate limiting, malware scanning, and a retention policy.
+
+Local verification: `cd tools/resumefit && pip install -r requirements-dev.txt && python -m pytest -q`.
