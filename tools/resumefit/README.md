@@ -12,10 +12,10 @@ ResumeFit is a runnable local web app for tailoring **any text-based DOCX resume
 
 ## Run locally
 
-Requirements: Python 3.11+ and, for PDF export/preview, LibreOffice (`soffice`).
+Requirements: Python 3.10+ and, for PDF export/preview, LibreOffice (`soffice`).
 
 ```bash
-cd AI-Job-Hunter/tools/resumefit
+cd resumefit_site
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -86,27 +86,47 @@ start.sh
 
 ## If Generate Suggestions fails
 
-- Check http://localhost:8000/api/health and confirm that the selected `ai_provider` is `groq`. This verifies configuration, not whether the key is valid.
-- If your key is rejected, verify `GROQ_API_KEY` in your local `.env` and restart `./start.sh`. Never commit or share your real key.
-- Groq's free tier has an 8K tokens/minute limit for `openai/gpt-oss-20b`. ResumeFit reduces prompt size; for unusually large resumes only a portion of bullets may receive AI suggestions, and the others stay manually editable.
-- If the model is reported unavailable, configure `GROQ_MODEL=openai/gpt-oss-20b` and restart.
-- The terminal logs the provider, HTTP status, safe error code, and exception type without including raw resume data or API keys. Share only that diagnostic information for help.
+- Confirm the selected provider at [http://localhost:8000/api/health](http://localhost:8000/api/health); it should show `"ai_provider":"groq"`. This checks configuration **only**, not key validity.
+- If the app says the key was rejected, check that your **local** `.env` contains the right `GROQ_API_KEY` and restart `./start.sh`. Never paste an API key into screenshots, ChatGPT, or GitHub.
+- Groq free tier has an **8K tokens/minute** limit for `openai/gpt-oss-20b`. ResumeFit now limits request size; very long resumes may receive suggestions for only their first portion. The rest remain manually editable.
+- If the app reports an unavailable model, set `GROQ_MODEL=openai/gpt-oss-20b` and restart.
+- The terminal now logs the provider, HTTP status and safe error code (without the raw request, secret key, or resume text). Send **only** that status/error type when requesting help.
 
-## Deploy ResumeFit from GitHub (private beta)
+## Deploy from GitHub (Render, private personal beta)
 
-This repository contains a separate Python/FastAPI website in `tools/resumefit/`.
-**GitHub Pages cannot host its Python backend.** A `render.yaml` at the repository root
-configures a free-tier Render Docker web service with LibreOffice for PDF export.
+GitHub Pages hosts static files only, so it **cannot** run this Python/FastAPI server.
+The repository root has `render.yaml`, which deploys the ResumeFit subfolder as a free Render Docker web service.
 
-1. In [Render](https://dashboard.render.com/), create a **New > Blueprint** from this repository's `main` branch.
-2. Set the secret environment variables `RESUMEFIT_ACCESS_PASSWORD` and `GROQ_API_KEY` in Render (never in GitHub).
-3. After deployment, visit the generated Render HTTPS URL. For the password prompt use username `resumefit` and the password you configured.
-4. Upload an original DOCX, paste the JD, click Generate Suggestions and preview/download DOCX or PDF.
+1. Merge the ResumeFit GitHub pull request into `main`.
+2. At [Render Dashboard](https://dashboard.render.com/), select **New > Blueprint**, connect `kartik977/AI-Job-Hunter`, and select the default branch.
+3. Render reads `render.yaml`. Enter `RESUMEFIT_ACCESS_PASSWORD` (choose a strong new password) and `GROQ_API_KEY` as secret environment variables. **Never put those in GitHub.**
+4. Deploy and wait for the Docker build. Render's URL is displayed when your service is live; the address is not known until creation.
+5. Visit the generated HTTPS `onrender.com` URL. Sign in to the browser's HTTP Basic prompt with username `resumefit` and your `RESUMEFIT_ACCESS_PASSWORD`. Upload DOCX, paste a JD, review edits, preview PDF, and download DOCX/PDF.
 
-This is intended for one owner, **not** for public resume uploads from many users.
-The access password protects resume text and provider usage. Render's free instance
-may sleep after inactivity and deletes stored sessions on sleep or redeploy. Groq
-usage is subject to its free-tier limits. A public multi-user release would require
-user accounts, rate limiting, malware scanning, and a retention policy.
+The Docker image includes LibreOffice for PDF conversion and Carlito, a Calibri-compatible font. Existing portfolio/Next.js routes are unchanged. The `/healthz` readiness route is public but includes no configuration info. All other routes require the password when deployed.
 
-Local verification: `cd tools/resumefit && pip install -r requirements-dev.txt && python -m pytest -q`.
+**Privacy and free-tier limits:** This setup is for one owner, not an open multi-user website. Stored resumes are temporarily placed on Render's *ephemeral disk* and can be lost when the free instance sleeps or restarts; do not use it as permanent resume storage. Render's free services spin down after inactivity, with a cold-start delay. Files are removed when their sessions expire (cleanup is lazy). Groq free-tier quotas also apply. Never publish the access password or Groq key. Public signups require stronger multi-user authentication, rate limiting, a retention policy and security review.
+
+### Local tests
+
+```bash
+cd tools/resumefit
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+
+## Matching cover letters
+
+Once a resume is analyzed, scroll to **04 · Matching cover letter**. Optionally enter
+company and job title, choose resume edits in step 02, and click **Generate matching
+cover letter**. The draft uses the **same JD plus the approved resume changes**, so
+it reflects the experiences actually present in the document. Review and edit the
+letter on screen, then download as DOCX or PDF. PDF requires LibreOffice (included
+in the Render Docker image). Neither the original DOCX nor the exported tailored
+resume is modified by cover-letter generation.
+
+Groq is used when `GROQ_API_KEY` is set, and the existing optional OpenAI fallback
+continues to work. Free-tier Groq rate limits apply. This feature does not invent
+qualifications intentionally, but AI output still needs human review. It cannot
+guarantee ATS results, interviews, or employment.

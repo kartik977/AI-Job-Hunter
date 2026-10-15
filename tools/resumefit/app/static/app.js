@@ -64,7 +64,7 @@ $('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;cons
  }
  render();counts();
  const topFocus=(result.focus||[]).slice(0,2).map(t=>t.length>115?t.slice(0,112)+'…':t).join(' • ');
- const message=(rewritten||reordered?(rewritten+' substantive summary/bullet suggestion(s); '+reordered+' skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. '):'No safe automatic changes found; you can edit lines manually. ')+(topFocus?'JD priorities: '+topFocus+'. ':'')+(result.warnings||[]).join(' ');
+ const message=(rewritten||reordered?`${rewritten} substantive summary/bullet suggestion(s); ${reordered} skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. `:'No safe automatic changes found; you can edit lines manually. ')+(topFocus?'JD priorities: '+topFocus+'. ':'')+(result.warnings||[]).join(' ');
  notice($('editorNotice'),message,result.mode==='local'?'warning':'');
  }catch(e){notice($('editorNotice'),e.message,'error');}finally{setBusy(btn,false);}});
 async function download(format){if(!state.session)return;const btn=format==='pdf'?$('pdfBtn'):$('docxBtn');setBusy(btn,true,'Preparing file…');notice($('editorNotice'),'');try{
@@ -74,7 +74,7 @@ async function download(format){if(!state.session)return;const btn=format==='pdf
  const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName().replace(/\.docx$/i,'')+'_Tailored.'+format;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
  }catch(e){notice($('editorNotice'),e.message,'error');window.scrollTo({top:$('editor-section').offsetTop,behavior:'smooth'});}finally{setBusy(btn,false);}}
 $('docxBtn').addEventListener('click',()=>download('docx'));$('pdfBtn').addEventListener('click',()=>download('pdf'));
-$('restartBtn').addEventListener('click',async()=>{if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
+$('restartBtn').addEventListener('click',async()=>{letterDraftSource=null;$('letterResult').hidden=true;letterText.value='';notice($('letterNotice'),'');if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
 updateReady();
 
 async function togglePreview(){
@@ -100,3 +100,54 @@ async function togglePreview(){
  finally{setBusy(btn,false);btn.textContent=state.previewEdited?'Show original ↩':'Preview my edits ↗';}
 }
 $('previewToggle').addEventListener('click',togglePreview);
+
+
+// Cover letter: generated from the same JD and the currently approved resume edits.
+function chosenLines() {
+ return state.candidates.filter(c=>state.edits[c.id].checked).map(c=>({id:c.id,text:state.edits[c.id].text}));
+}
+function currentLetterSource() {
+ return JSON.stringify({jd:jdField.value,company:$('letterCompany').value,role:$('letterRole').value,lines:chosenLines()});
+}
+let letterDraftSource = null;
+const letterText = $('letterText');
+function markLetterOutdated() {
+ if(letterDraftSource && currentLetterSource()!==letterDraftSource){
+  notice($('letterNotice'),'Your JD, company, role, or selected resume edits changed after generating this letter. Regenerate to keep them aligned.','warning');
+ }
+}
+jdField.addEventListener('input',markLetterOutdated);
+$('letterCompany').addEventListener('input',markLetterOutdated);
+$('letterRole').addEventListener('input',markLetterOutdated);
+$('editor-section').addEventListener('input',markLetterOutdated);
+$('editor-section').addEventListener('change',markLetterOutdated);
+$('generateLetterBtn').addEventListener('click',async()=>{
+ if(!state.session)return;
+ const btn=$('generateLetterBtn');setBusy(btn,true,'Writing a matching cover letter…');notice($('letterNotice'),'');
+ try{
+  const source=currentLetterSource();
+  const request={session_id:state.session,jd:jdField.value,lines:chosenLines(),company:$('letterCompany').value.trim(),role:$('letterRole').value.trim()};
+  const result=await jsonFetch('/api/cover-letter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+  letterText.value=result.letter_text;
+  $('letterResult').hidden=false;
+  letterDraftSource=source;
+  notice($('letterNotice'),'Draft generated using '+result.provider+'. Review facts, edit the wording, then download your preferred format.');
+  $('letterResult').scrollIntoView({behavior:'smooth',block:'nearest'});
+ }catch(err){notice($('letterNotice'),err.message,'error');}
+ finally{setBusy(btn,false);}
+});
+async function downloadLetter(format){
+ if(!state.session||!letterText.value.trim())return;
+ const btn=format==='pdf'?$('letterPdfBtn'):$('letterDocxBtn');setBusy(btn,true,'Preparing cover letter…');
+ try{
+  const response=await fetch('/api/cover-letter/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.session,letter_text:letterText.value,company:$('letterCompany').value.trim(),role:$('letterRole').value.trim(),output_format:format})});
+  if(!response.ok){const err=await response.json();throw new Error(err.detail||'Cover letter export failed.');}
+  const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
+  const company=$('letterCompany').value.trim().replace(/[^a-z0-9_-]+/gi,'_').slice(0,40)||'Job';
+  a.href=url;a.download=company+'_Cover_Letter.'+format;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+ }catch(err){notice($('letterNotice'),err.message,'error');}
+ finally{setBusy(btn,false);}
+}
+$('letterDocxBtn').addEventListener('click',()=>downloadLetter('docx'));
+$('letterPdfBtn').addEventListener('click',()=>downloadLetter('pdf'));

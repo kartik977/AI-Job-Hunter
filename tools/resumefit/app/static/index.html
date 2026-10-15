@@ -72,6 +72,19 @@
           </div>
           <aside class="preview-column"><div class="preview-header"><div><strong id="previewTitle">Original format preview</strong><div class="muted" id="previewDesc">A reference of your uploaded Word file</div></div><button id="previewToggle" class="preview-toggle">Preview my edits ↗</button></div><div id="previewFrame"><div class="preview-wait">Preview becomes available once your DOCX is analyzed.</div></div><div class="preview-note">Word formatting is retained, but significantly longer text can change line wrapping and page count. Always review the exported file.</div></aside>
         </div>
+        <section class="letter-section" id="coverLetterSection" aria-labelledby="coverLetterTitle">
+          <div class="letter-topline"><span class="letter-step">04 · MATCHING COVER LETTER</span><span class="letter-hint">Included with your application</span></div>
+          <div class="letter-header"><div><h2 id="coverLetterTitle">A cover letter for this job, too.</h2><p>Uses the same JD and your selected resume edits. AI drafts the letter; you review and customize it before downloading.</p></div></div>
+          <div class="letter-fields"><label>Company name (optional)<input id="letterCompany" type="text" maxlength="100" placeholder="e.g. Confido" autocomplete="organization" /></label><label>Position title (optional)<input id="letterRole" type="text" maxlength="120" placeholder="e.g. Senior Software Engineer" /></label></div>
+          <button id="generateLetterBtn" class="btn btn-dark">✧ Generate matching cover letter <span>→</span></button>
+          <div id="letterNotice" class="notice" hidden role="status"></div>
+          <div id="letterResult" class="letter-result" hidden>
+            <label for="letterText">Your draft — edit anything before submitting</label>
+            <textarea id="letterText" rows="13" maxlength="8000" aria-label="Editable cover letter"></textarea>
+            <p class="letter-disclaimer">AI can make mistakes. Confirm every statement and regenerate after significant resume or JD changes. A tailored cover letter cannot guarantee an interview or ATS ranking.</p>
+            <div class="export-buttons"><button id="letterDocxBtn" class="btn btn-primary">↓ Cover letter DOCX</button><button id="letterPdfBtn" class="btn btn-outline">↓ Cover letter PDF</button></div>
+          </div>
+        </section>
         <div class="export-area"><div><div class="export-eyebrow">03 · EXPORT</div><h2>Ready for the application?</h2><p>Download the original-style resume with only your approved edits.</p></div><div class="export-buttons"><button id="docxBtn" class="btn btn-primary">↓ Download DOCX</button><button id="pdfBtn" class="btn btn-outline">↓ Download PDF</button></div></div>
       </section>
       <footer><span>ResumeFit <span class="muted">/ Format-first editor</span></span><span>Your facts stay yours. Review every edit before applying.</span></footer>
