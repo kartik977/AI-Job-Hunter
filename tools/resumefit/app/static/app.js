@@ -63,7 +63,8 @@ $('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;cons
   }
  }
  render();counts();
- const message=(rewritten||reordered?(rewritten+' substantive summary/bullet suggestion(s); '+reordered+' skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. '):'No safe automatic changes found; you can edit lines manually. ')+(result.warnings||[]).join(' ');
+ const topFocus=(result.focus||[]).slice(0,2).map(t=>t.length>115?t.slice(0,112)+'…':t).join(' • ');
+ const message=(rewritten||reordered?(rewritten+' substantive summary/bullet suggestion(s); '+reordered+' skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. '):'No safe automatic changes found; you can edit lines manually. ')+(topFocus?'JD priorities: '+topFocus+'. ':'')+(result.warnings||[]).join(' ');
  notice($('editorNotice'),message,result.mode==='local'?'warning':'');
  }catch(e){notice($('editorNotice'),e.message,'error');}finally{setBusy(btn,false);}});
 async function download(format){if(!state.session)return;const btn=format==='pdf'?$('pdfBtn'):$('docxBtn');setBusy(btn,true,'Preparing file…');notice($('editorNotice'),'');try{

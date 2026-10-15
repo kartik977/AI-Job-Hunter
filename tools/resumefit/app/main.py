@@ -12,13 +12,15 @@ import logging
 import re
 
 from docx import Document
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .engine import Candidate, edit_docx, find_candidates, serialize_candidates, validate_docx
 from .ai import suggest, active_provider
+from .access import access_response
+from .jd import focus_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,23 @@ MAX_FILE_BYTES = 8 * 1024 * 1024
 SESSION_TTL = 60 * 60
 app = FastAPI(title='ResumeFit - Format-first JD tailoring', version='0.1.0')
 app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
+
+
+@app.middleware('http')
+async def secure_requests(request: Request, call_next):
+    denial = access_response(request)
+    if denial is not None:
+        return denial
+    response = await call_next(request)
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@app.get('/healthz')
+def public_health():
+    return {'ok': True}
+
 
 
 class TailorRequest(BaseModel):
@@ -182,7 +201,8 @@ def tailor(req: TailorRequest):
                             'AI returned an unexpected response.'):
                 raise HTTPException(502, str(exc)) from exc
         raise HTTPException(502, f'{provider.title()} tailoring failed. Check the terminal for the HTTP status or error type (no API key needed).') from exc
-    return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings}
+    return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings,
+            'focus': focus_requirements(req.jd, limit=3)}
 
 
 @app.post('/api/export')
