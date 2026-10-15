@@ -1,0 +1,19 @@
+# One-owner beta deploy, secrets configured privately in Render.
+services:
+  - type: web
+    name: resumefit-word-tailor
+    runtime: docker
+    plan: free
+    dockerfilePath: ./tools/resumefit/Dockerfile
+    dockerContext: ./tools/resumefit
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: RESUMEFIT_REQUIRE_AUTH
+        value: '1'
+      - key: RESUMEFIT_ACCESS_PASSWORD
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b

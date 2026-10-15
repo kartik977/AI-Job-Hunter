@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Tailor the words, keep the resume. Upload a Word resume, paste a job description, review edits and export to DOCX or PDF." />
+  <title>ResumeFit — Your format. Better match.</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ResumeFit Home">
+        <span class="brandmark">R<span class="brand-slash">/</span></span>
+        <span>Resume<span class="brand-em">Fit</span></span>
+      </a>
+      <div class="top-right"><span class="status-dot"></span> Format-first resume tailoring <span class="top-label">BETA</span></div>
+    </header>
+
+    <main>
+      <section class="hero" id="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> YOUR TEMPLATE. YOUR EXPERIENCE. BETTER MATCH.</div>
+          <h1>Change the words.<br><em>Keep the format.</em></h1>
+          <p class="hero-sub">Stop rebuilding your resume for every application. Upload <strong>any Word resume</strong>, paste a job description, and tailor only your summary, skills, and bullet points.</p>
+          <div class="pill-row"><span><svg viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" /></svg> Same Word document</span><span><svg viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" /></svg> No invented experience</span><span><svg viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" /></svg> PDF + DOCX</span></div>
+        </div>
+        <div class="hero-aside">
+          <div class="before-after">
+            <div class="mock-panel"><div class="mock-overline">YOUR ORIGINAL RESUME</div><div class="mock-head"></div><div class="mock-line wide"></div><div class="mock-line medium"></div><div class="mock-label"></div><div class="mock-line wide"></div><div class="mock-line wide"></div><div class="mock-line medium"></div><div class="mock-label"></div><div class="mock-line wide"></div><div class="mock-line medium"></div><div class="mock-line wide"></div></div>
+            <div class="mock-divider"><span>↗</span></div>
+            <div class="mock-panel mock-new"><div class="mock-overline">TAILORED FOR THE ROLE</div><div class="mock-head"></div><div class="mock-line wide"></div><div class="mock-line medium"></div><div class="mock-label"></div><div class="mock-line wide highlighted"></div><div class="mock-line wide"></div><div class="mock-line medium highlighted"></div><div class="mock-label"></div><div class="mock-line wide"></div><div class="mock-line medium highlighted"></div><div class="mock-line wide"></div></div>
+          </div>
+          <div class="aside-caption">Same layout. <strong>Only the relevant wording changes.</strong></div>
+        </div>
+      </section>
+
+      <section class="upload-section" id="upload-section">
+        <div class="section-line"><span class="section-step">01</span><h2>Give us the two things</h2><span class="section-hint">No account needed for local use</span></div>
+        <div class="input-grid">
+          <div class="input-panel">
+            <div class="input-title"><span class="small-icon">↑</span><div><h3>Your existing resume</h3><p>Upload the exact design you want to preserve</p></div></div>
+            <label class="drop-zone" id="dropZone" for="resumeFile">
+              <input id="resumeFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+              <span class="upload-symbol">⇧</span>
+              <strong id="dropTitle">Drop your resume here</strong>
+              <span id="dropHint">or click to browse your files</span>
+              <span class="file-type">.DOCX · up to 8 MB</span>
+            </label>
+            <div class="note"><span>i</span><p><strong>Why DOCX?</strong> We edit the existing Word file directly instead of rebuilding the design. Uploading PDF-only files cannot guarantee the same original layout.</p></div>
+          </div>
+          <div class="input-panel jd-panel">
+            <div class="input-title"><span class="small-icon">≡</span><div><h3>The job description</h3><p>Paste the position you're applying for</p></div></div>
+            <textarea id="jd" placeholder="Paste the full job description here — responsibilities, required skills, qualifications and everything else..." aria-label="Job description" spellcheck="false"></textarea>
+            <div class="jd-footer"><span id="jdCount">0 characters</span><span>Minimum 50 characters</span></div>
+          </div>
+        </div>
+        <div class="form-footer"><div class="privacy-notice"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Files are stored temporarily. AI mode sends resume text and the JD to your configured AI provider.</span></div><button id="analyzeBtn" class="btn btn-primary" disabled>Analyze resume <span>→</span></button></div>
+        <div id="mainNotice" class="notice" hidden role="alert"></div>
+      </section>
+
+      <section class="editor-section" id="editor-section" hidden>
+        <div class="section-line"><span class="section-step">02</span><h2>Review every suggested change</h2><span class="section-hint">You approve exactly what gets edited</span></div>
+        <div class="summary-strip"><div class="filename-row"><div class="doc-icon">W</div><div><strong id="workingFilename">resume.docx</strong><div class="muted">Your original file stays unchanged</div></div></div><div class="counts"><span><strong id="totalLines">0</strong> editable lines</span><span><strong id="acceptedLines">0</strong> selected edits</span></div><button id="restartBtn" class="btn btn-quiet">Start over</button></div>
+        <div class="editor-actions"><div><h3>Tailor to this job</h3><p>Suggestions only affect summary, skills and bullet points. Edit or uncheck anything.</p></div><button id="tailorBtn" class="btn btn-dark">✧ Generate suggestions <span>→</span></button></div>
+        <div id="editorNotice" class="notice" hidden role="alert"></div>
+        <div class="workspace">
+          <div class="review-column">
+            <div class="review-head"><div class="tabs" role="tablist" aria-label="Filter editable lines"><button data-filter="all" class="tab selected">All <span id="allCount">0</span></button><button data-filter="summary" class="tab">Summary</button><button data-filter="skills" class="tab">Skills</button><button data-filter="bullet" class="tab">Bullets</button></div><button id="clearBtn" class="clear-action">Uncheck all</button></div>
+            <div class="review-sub">Original text is on top. Rewrite the field underneath, or accept an AI suggestion. Unchecked entries stay exactly as they were.</div>
+            <div id="lineList" class="line-list"></div>
+          </div>
+          <aside class="preview-column"><div class="preview-header"><div><strong id="previewTitle">Original format preview</strong><div class="muted" id="previewDesc">A reference of your uploaded Word file</div></div><button id="previewToggle" class="preview-toggle">Preview my edits ↗</button></div><div id="previewFrame"><div class="preview-wait">Preview becomes available once your DOCX is analyzed.</div></div><div class="preview-note">Word formatting is retained, but significantly longer text can change line wrapping and page count. Always review the exported file.</div></aside>
+        </div>
+        <div class="export-area"><div><div class="export-eyebrow">03 · EXPORT</div><h2>Ready for the application?</h2><p>Download the original-style resume with only your approved edits.</p></div><div class="export-buttons"><button id="docxBtn" class="btn btn-primary">↓ Download DOCX</button><button id="pdfBtn" class="btn btn-outline">↓ Download PDF</button></div></div>
+      </section>
+      <footer><span>ResumeFit <span class="muted">/ Format-first editor</span></span><span>Your facts stay yours. Review every edit before applying.</span></footer>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

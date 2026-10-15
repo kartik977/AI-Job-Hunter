@@ -100,3 +100,8 @@ Fair-use caps: 100 analyses/month, 20 resumes (per org) — no payment to lift t
 ## License
 
 Private — All rights reserved.
+
+
+## ResumeFit — same-format resume tailoring
+
+A separate DOCX-to-DOCX/PDF resume tailoring website with Groq AI and original-format preservation lives in [tools/resumefit](tools/resumefit). A root-level [render.yaml](render.yaml) provides deployment instructions and infrastructure for Render, separate from this Next.js application.
