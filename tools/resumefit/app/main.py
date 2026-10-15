@@ -8,6 +8,8 @@ import subprocess
 import tempfile
 import time
 from uuid import uuid4
+import logging
+import re
 
 from docx import Document
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -17,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from .engine import Candidate, edit_docx, find_candidates, serialize_candidates, validate_docx
 from .ai import suggest, active_provider
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent
 SESSIONS = Path(os.getenv('RESUMEFIT_SESSION_DIR', str(Path(tempfile.gettempdir()) / 'resumefit-sessions')))
@@ -145,12 +149,39 @@ def tailor(req: TailorRequest):
     try:
         suggestions, mode, warnings = suggest(candidates, req.jd, data['full_resume_text'])
     except Exception as exc:
-        from openai import AuthenticationError, RateLimitError
-        if isinstance(exc, RateLimitError):
-            raise HTTPException(429, 'AI provider rate limit reached. Free Groq usage has limits; try again later.') from exc
+        from openai import APIStatusError, AuthenticationError, RateLimitError, APIConnectionError, APITimeoutError
+        provider = active_provider()
+        status = getattr(exc, 'status_code', None)
+        # Do not return or log raw provider errors: they might contain resume text or secrets.
+        body = getattr(exc, 'body', None)
+        code = body.get('code') if isinstance(body, dict) else None
+        if not isinstance(code, str) and isinstance(body, dict) and isinstance(body.get('error'), dict):
+            code = body['error'].get('code')
+        safe_code = re.sub(r'[^A-Za-z0-9_-]', '', code or '')[:50] if isinstance(code, str) else ''
+        logger.warning('AI failure provider=%s status=%s code=%s error_type=%s',
+                       provider, status, safe_code, type(exc).__name__)
         if isinstance(exc, AuthenticationError):
-            raise HTTPException(502, 'AI API key was rejected. Check your .env key and restart the server.') from exc
-        raise HTTPException(502, 'AI tailoring could not complete. Check the server logs and selected model.') from exc
+            raise HTTPException(502, f'{provider.title()} API key is invalid. Check GROQ_API_KEY in .env and restart the server.'
+                                if provider == 'groq' else 'OpenAI API key is invalid. Check OPENAI_API_KEY in .env and restart.') from exc
+        if isinstance(exc, RateLimitError):
+            raise HTTPException(429, f'{provider.title()} rate limit reached. On Groq free tier, large resumes and repeated requests can exceed the 8K-token/minute limit. Try again after the limit resets.') from exc
+        if isinstance(exc, (APIConnectionError, APITimeoutError)):
+            raise HTTPException(503, f'Cannot reach {provider.title()} right now. Check internet connectivity and retry.') from exc
+        if isinstance(exc, APIStatusError):
+            if status == 413:
+                raise HTTPException(413, 'AI request was too large for this provider. Try a shorter job description.') from exc
+            if status in (400, 404):
+                if safe_code in ('model_decommissioned', 'model_not_found', 'model_not_available') or status == 404:
+                    raise HTTPException(502, f'{provider.title()} model not available. Set GROQ_MODEL=openai/gpt-oss-20b in .env and restart.') from exc
+                raise HTTPException(502, f'{provider.title()} rejected the request (HTTP {status}' +
+                                    (f', error: {safe_code}' if safe_code else '') + '). Try a shorter job description; verify the model in .env.') from exc
+            raise HTTPException(502, f'{provider.title()} service returned HTTP {status or "error"}. Retry later.') from exc
+        if isinstance(exc, (ValueError, json.JSONDecodeError)):
+            if str(exc) in ('AI response reached its output limit. Try a shorter job description or a shorter resume.',
+                            'AI returned invalid JSON. Try Generate Suggestions again.',
+                            'AI returned an unexpected response.'):
+                raise HTTPException(502, str(exc)) from exc
+        raise HTTPException(502, f'{provider.title()} tailoring failed. Check the terminal for the HTTP status or error type (no API key needed).') from exc
     return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings}
 
 
