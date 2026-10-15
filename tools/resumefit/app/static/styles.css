@@ -30,3 +30,21 @@ body { font-size: 16px; }
 .export-area p { font-size: 14px; }
 button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid #55ad8c; outline-offset: 2px; }
 @media (max-width:720px) { .section-line h2 { font-size: 21px; } .hero-sub { font-size: 16px; } }
+
+/* Matching cover-letter composer */
+.letter-section{margin-top:30px;border:1px solid #d6e5db;border-radius:14px;padding:30px 34px;background:#fff;box-shadow:var(--shadow)}
+.letter-topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.letter-step{font-size:12px;font-weight:800;letter-spacing:1.2px;color:var(--accent)}
+.letter-hint{font-size:13px;color:var(--muted)}
+.letter-header h2{font-family:Manrope,sans-serif;font-size:26px;letter-spacing:-.5px;margin:15px 0 7px}
+.letter-header p{font-size:15px;line-height:1.65;color:var(--ink2);max-width:810px;margin:0 0 20px}
+.letter-fields{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px}
+.letter-fields label,.letter-result label{font-weight:700;font-size:14px;color:var(--ink2);display:block}
+.letter-fields input{width:100%;display:block;border:1px solid #d3ded8;padding:12px 14px;font-size:16px;border-radius:8px;margin-top:7px;outline:none;background:#fcfdfc}
+.letter-fields input:focus{border-color:var(--accent)}
+.letter-result{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+.letter-result[hidden]{display:none}
+.letter-result textarea{width:100%;resize:vertical;border:1px solid #d3ded8;border-radius:9px;min-height:340px;margin-top:10px;padding:19px;font:inherit;font-size:16px;line-height:1.7;color:var(--ink);background:#fcfdfc}
+.letter-result textarea:focus{outline:3px solid #55ad8c;outline-offset:2px}
+.letter-disclaimer{font-size:13px;line-height:1.6;color:#788782;margin:12px 0 18px}
+@media(max-width:720px){.letter-section{padding:22px 17px}.letter-fields{grid-template-columns:1fr}.letter-header h2{font-size:22px}}
