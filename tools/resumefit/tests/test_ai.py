@@ -31,7 +31,7 @@ def test_groq_has_priority_and_uses_compatible_api(monkeypatch):
     class FakeCompletion:
         def create(self, **kw):
             observed.update(kw)
-            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
+            return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop', message=SimpleNamespace(
                 content='{"changes":[{"id":"p7","text":"Developed REST APIs using Java."}]}'
             ))])
     class FakeOpenAI:
@@ -55,3 +55,23 @@ def test_openai_still_available_when_groq_missing(monkeypatch):
     monkeypatch.delenv('GROQ_API_KEY', raising=False)
     monkeypatch.setenv('OPENAI_API_KEY', 'sk-paid-test')
     assert ai.active_provider() == 'openai'
+
+
+def test_groq_compacts_large_input_without_losing_mappings(monkeypatch):
+    lines = [_sample()[0]] * 80
+    payload, warnings = ai._compact_payload(lines, 'Java developer ' * 2000, 'REST APIs built ' * 3000, 'groq')
+    assert len(payload['job_description']) <= 4500
+    assert len(payload['full_original_resume_for_factual_reference']) <= 4500
+    assert len(payload['editable_lines']) == len(lines)
+    assert any('shortened' in x for x in warnings)
+
+
+def test_groq_bounds_many_long_bullets():
+    lines = []
+    for i in range(70):
+        lines.append(Candidate(id=f'p{i}', index=i, category='bullet', original='A' * 450,
+                               editable_original='A' * 450, locked_prefix='', section='experience', style='List Bullet'))
+    payload, warnings = ai._compact_payload(lines, 'JD ' * 100, 'resume ' * 500, 'groq')
+    assert 0 < len(payload['editable_lines']) < len(lines)
+    assert any('only' in x and 'editable' in x for x in warnings)
+    assert all('id' in r for r in payload['editable_lines'])
