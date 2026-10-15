@@ -54,8 +54,17 @@ for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click
 $('clearBtn').addEventListener('click',()=>{for(const model of Object.values(state.edits))model.checked=false;counts();render();});
 $('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;const btn=$('tailorBtn');setBusy(btn,true,'Generating suggestions…');notice($('editorNotice'),'');try{
  const result=await jsonFetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.session,jd:jdField.value})});
- let changed=0;for(const [id,text] of Object.entries(result.suggestions)){if(state.edits[id]&&text.trim()){state.edits[id].text=text;state.edits[id].checked=true;changed++;}}
- render();counts();const message=(changed?changed+' line(s) have new suggestions. Review and uncheck anything you do not want. ':'No safe automatic changes found. You can edit lines manually. ')+(result.warnings||[]).join(' ');notice($('editorNotice'),message,result.mode==='local'?'warning':'');
+ let rewritten=0, reordered=0;
+ for(const [id,text] of Object.entries(result.suggestions)){
+  const candidate=state.candidates.find(c=>c.id===id);
+  if(state.edits[id]&&candidate&&text.trim()&&text!==candidate.editable_original){
+   state.edits[id].text=text;state.edits[id].checked=true;
+   if(candidate.category==='skills') reordered++; else rewritten++;
+  }
+ }
+ render();counts();
+ const message=(rewritten||reordered?(rewritten+' substantive summary/bullet suggestion(s); '+reordered+' skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. '):'No safe automatic changes found; you can edit lines manually. ')+(result.warnings||[]).join(' ');
+ notice($('editorNotice'),message,result.mode==='local'?'warning':'');
  }catch(e){notice($('editorNotice'),e.message,'error');}finally{setBusy(btn,false);}});
 async function download(format){if(!state.session)return;const btn=format==='pdf'?$('pdfBtn'):$('docxBtn');setBusy(btn,true,'Preparing file…');notice($('editorNotice'),'');try{
  const lines=state.candidates.filter(c=>state.edits[c.id].checked).map(c=>({id:c.id,text:state.edits[c.id].text}));

@@ -44,8 +44,8 @@ def test_groq_has_priority_and_uses_compatible_api(monkeypatch):
     monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
     suggestions, mode, warnings = ai.suggest(_sample(), 'Java developer who builds REST APIs ' * 4, 'Built REST APIs using Java.')
     assert mode == 'groq'
-    assert not warnings
-    assert suggestions == {'p7': 'Developed REST APIs using Java.'}
+    assert suggestions == {}  # Superficial verb swap must no longer count.
+    assert any('no substantive' in w for w in warnings)
     assert observed['client']['base_url'] == 'https://api.groq.com/openai/v1'
     assert observed['model'] == 'openai/gpt-oss-20b'
     assert observed['response_format'] == {'type': 'json_object'}
@@ -73,5 +73,67 @@ def test_groq_bounds_many_long_bullets():
                                editable_original='A' * 450, locked_prefix='', section='experience', style='List Bullet'))
     payload, warnings = ai._compact_payload(lines, 'JD ' * 100, 'resume ' * 500, 'groq')
     assert 0 < len(payload['editable_lines']) < len(lines)
-    assert any('only' in x and 'editable' in x for x in warnings)
+    assert any('remaining lines' in x for x in warnings)
     assert all('id' in r for r in payload['editable_lines'])
+
+
+def _candidate(cat: str, value: str, ident: str = 'p12') -> Candidate:
+    return Candidate(id=ident, index=12, category=cat, original=value,
+                     editable_original=value, locked_prefix='', section=cat, style='Normal')
+
+
+def test_cosmetic_rephrases_are_ignored():
+    assert not ai._is_meaningful('Built REST APIs using Java.', 'Developed REST APIs using Java.')
+    assert not ai._is_meaningful('Python, SQL, Docker', 'Docker, SQL, Python')
+    assert ai._is_meaningful('Built REST APIs using Java and Spring Boot.',
+        'Engineered Spring Boot REST endpoints in Java, providing reusable backend integrations.')
+
+
+def test_skills_lists_keep_every_framework_and_label():
+    skills = _candidate('skills',
+        'Frameworks & APIs: Spring Boot | Node.js | NestJS | Express.js | REST APIs | GraphQL | React.js | Next.js | Flask | Microservices')
+    result = ai._priority_skills([skills], 'We need React.js, Next.js, and Spring Boot expertise.')
+    revised = result[skills.id]
+    assert revised.startswith('Frameworks & APIs: ')
+    assert sorted(revised.split(': ', 1)[1].split(' | ')) == sorted(skills.original.split(': ', 1)[1].split(' | '))
+    assert 'React.js' in revised and 'Next.js' in revised
+
+
+def test_skill_list_no_cosmetic_swap_when_top_skills_already_match():
+    skills = _candidate('skills','Languages: Java | TypeScript | JavaScript | Python | SQL')
+    assert ai._priority_skills([skills], 'Java and TypeScript developer wanted') == {}
+
+
+def test_groq_sends_summary_and_bullets_not_skill_lists():
+    skills = _candidate('skills','Languages: Python | Java | SQL | Node.js')
+    summary = _candidate('summary','Software engineer working with Java and Spring Boot on backend platforms.', 'p3')
+    bullet = _candidate('bullet','Built REST APIs in Java and Spring Boot for internal applications.', 'p9')
+    payload, _ = ai._compact_payload([skills, bullet, summary], 'Backend Java position', 'Experience', 'groq')
+    assert [x['id'] for x in payload['editable_lines']] == ['p3', 'p9']
+
+
+def test_model_cannot_delete_skills_or_change_numbers(monkeypatch):
+    from types import SimpleNamespace
+    import sys
+    skills = _candidate('skills','Frameworks: Spring Boot | Java | Python | React.js | SQL','p2')
+    bullet = _candidate('bullet', 'Improved release process with Docker, cutting deployment time by 25%.', 'p3')
+    class FakeCompletion:
+        def create(self, **kw):
+            return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop', message=SimpleNamespace(
+                content='{"changes":['
+                        '{"id":"p2","text":"Frameworks: Spring Boot | Java"},'
+                        '{"id":"p3","text":"Automated releases using Docker and saved 50% of deployment time."}'
+                        ']}'
+            ))])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.setenv('GROQ_API_KEY','gsk-test-only')
+    monkeypatch.delenv('OPENAI_API_KEY',raising=False)
+    monkeypatch.setitem(sys.modules,'openai',SimpleNamespace(OpenAI=FakeOpenAI))
+    result, mode, warnings=ai.suggest([skills, bullet], 'Java API engineer in Spring Boot and Docker ' * 4,
+                                     skills.original+'\n'+bullet.original)
+    assert mode == 'groq'
+    assert skills.id not in result  # No removal of Python, React, or SQL allowed.
+    assert bullet.id not in result  # Changed numeric claim rejected.
+    assert any('numerical claims' in w for w in warnings)
