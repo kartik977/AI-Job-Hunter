@@ -20,13 +20,23 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env and set your OPENAI_API_KEY to enable AI rewriting.
+# Edit .env and set GROQ_API_KEY to use Groq free-tier AI rewriting.
 ./start.sh                       # Windows: python -m uvicorn app.main:app --port 8000
 ```
 
 Open **http://127.0.0.1:8000**.
 
-If `OPENAI_API_KEY` is not supplied, the app still runs: upload, manual editing, and export all work, and it can locally reorder skills already on the resume that appear in the JD. It **does not** pretend to run AI rewrites without a provider key. The default AI model is configurable via `OPENAI_MODEL` in `.env`.
+### Enable Groq AI suggestions (free tier)
+
+1. Create a key in [Groq Console](https://console.groq.com/keys). Free usage is subject to model and rate limits.
+2. Put `GROQ_API_KEY=gsk_...` into your local `.env` (never GitHub).
+3. Leave `GROQ_MODEL=openai/gpt-oss-20b`, the supported default.
+4. Restart `./start.sh`, upload a `.docx`, paste the JD and click **Generate suggestions**.
+
+Groq uses its OpenAI-compatible API, so the existing `openai` Python package is reused. If both keys are configured, **Groq takes priority**. `OPENAI_API_KEY` is an optional paid fallback when Groq is unset. If neither key is configured, the app still supports manual editing, local skill reordering, and DOCX export. It does **not** claim to generate AI suggestions without a provider key.
+
+The website text and editing fields have larger font sizes for readability; **the resume's own font formatting is never changed** by website typography.
+
 
 ### Mac PDF support
 
@@ -52,7 +62,7 @@ DOCX export does not need LibreOffice.
 ## Privacy / security
 
 - Files are stored under a temporary unguessable session ID and expire after **1 hour** (cleanup triggered by subsequent uploads). Use **Start over** to delete the current file immediately.
-- With AI enabled, the **extracted resume text and job description are transmitted to your configured OpenAI API project** for suggestions. No full DOCX is uploaded to the model. Without a key, no resume information is transmitted to AI.
+- With AI enabled, the **extracted resume text and job description are transmitted to your configured Groq or OpenAI API provider** for suggestions. No full DOCX is uploaded to the model. Without a key, no resume information is transmitted to AI.
 - This is designed for **local/personal use**. Before deploying publicly, add authentication, a reverse proxy, rate limits, file scanning, session ownership and a retention policy.
 - A simple numerical claim guard rejects generated metrics not found in the original bullet, but users must still proofread any generated text. It is not a factual verification service.
 

@@ -5,3 +5,28 @@
 @media(max-width:720px){.site-shell{width:calc(100% - 32px)}.topbar{height:74px}.top-right{font-size:10px}.top-label{display:none}.hero{grid-template-columns:1fr;padding:46px 0 45px}.hero h1{font-size:44px;letter-spacing:-2px}.hero-sub{font-size:14px}.hero-aside{display:none}.section-line h2{font-size:17px}.section-hint{display:none}.input-grid{grid-template-columns:1fr}.input-panel{min-height:0;padding:19px}.form-footer{align-items:stretch;flex-direction:column}.form-footer .btn{width:100%}.summary-strip{flex-wrap:wrap}.counts{order:3;flex-basis:100%}.editor-actions{gap:18px;flex-direction:column;align-items:stretch}.tabs{overflow:auto}.tab{padding:15px 8px;white-space:nowrap}.export-area{flex-direction:column;align-items:stretch;padding:25px}.export-buttons{flex-direction:column}.review-head{padding:0 12px}.clear-action{white-space:nowrap}footer{gap:12px;flex-direction:column;align-items:flex-start}}
 
 .preview-toggle{background:#e9f4ec;border:1px solid #cfebd7;color:#25714d;border-radius:6px;padding:8px 10px;font-size:10px;font-weight:800;white-space:nowrap}.preview-toggle:hover:not(:disabled){background:#d6ebdb}
+
+
+/* ResumeFit readability upgrade: larger copy throughout the site and editor. */
+body { font-size: 16px; }
+.brand { font-size: 23px; }
+.top-right, .pill-row span, .aside-caption, .section-hint, .input-title p,
+.editor-actions p, .drop-zone span:not(.upload-symbol), .privacy-notice,
+.muted, .counts, .review-sub, .clear-action, .preview-note, footer { font-size: 14px; }
+.top-label, .eyebrow, .jd-footer, .original-caption, .suggest-label, .word-count,
+.edit-tag, .export-eyebrow, .live-mark { font-size: 12px; }
+.section-line h2 { font-size: 24px; }
+.input-title h3, .editor-actions h3 { font-size: 18px; }
+.drop-zone strong, .preview-header strong, .filename-row strong { font-size: 16px; }
+.drop-zone .file-type { font-size: 12px !important; }
+.note p { font-size: 13px; line-height: 1.65; }
+.jd-panel textarea, .edit-textarea { font-size: 16px; line-height: 1.65; }
+.original-text { font-size: 15px; line-height: 1.65; }
+.btn { font-size: 15px; padding: 15px 23px; }
+.tab { font-size: 14px; }
+.tab span, .check-wrap { font-size: 13px; }
+.preview-toggle { font-size: 13px; }
+.notice, .empty-list, .preview-wait { font-size: 14px; line-height: 1.6; }
+.export-area p { font-size: 14px; }
+button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid #55ad8c; outline-offset: 2px; }
+@media (max-width:720px) { .section-line h2 { font-size: 21px; } .hero-sub { font-size: 16px; } }

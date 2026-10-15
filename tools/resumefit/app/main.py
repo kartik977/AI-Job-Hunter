@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .engine import Candidate, edit_docx, find_candidates, serialize_candidates, validate_docx
-from .ai import suggest
+from .ai import suggest, active_provider
 
 ROOT = Path(__file__).resolve().parent
 SESSIONS = Path(os.getenv('RESUMEFIT_SESSION_DIR', str(Path(tempfile.gettempdir()) / 'resumefit-sessions')))
@@ -94,7 +94,8 @@ def index():
 
 @app.get('/api/health')
 def health():
-    return {'ready': True, 'ai_enabled': bool(os.getenv('OPENAI_API_KEY')),
+    return {'ready': True, 'ai_enabled': active_provider() != 'local',
+            'ai_provider': active_provider(),
             'pdf_enabled': bool(shutil.which('soffice') or shutil.which('libreoffice'))}
 
 
@@ -131,7 +132,7 @@ async def analyze(file: UploadFile = File(...)):
         raise HTTPException(422, f'Could not read this Word document: {exc}') from exc
     return {
         'session_id': uid, 'filename': filename, 'candidates': serialize_candidates(candidates),
-        'ai_enabled': bool(os.getenv('OPENAI_API_KEY')),
+        'ai_enabled': active_provider() != 'local', 'ai_provider': active_provider(),
         'pdf_enabled': bool(shutil.which('soffice') or shutil.which('libreoffice')),
     }
 
@@ -144,7 +145,12 @@ def tailor(req: TailorRequest):
     try:
         suggestions, mode, warnings = suggest(candidates, req.jd, data['full_resume_text'])
     except Exception as exc:
-        raise HTTPException(502, f'AI tailoring could not complete: {exc}') from exc
+        from openai import AuthenticationError, RateLimitError
+        if isinstance(exc, RateLimitError):
+            raise HTTPException(429, 'AI provider rate limit reached. Free Groq usage has limits; try again later.') from exc
+        if isinstance(exc, AuthenticationError):
+            raise HTTPException(502, 'AI API key was rejected. Check your .env key and restart the server.') from exc
+        raise HTTPException(502, 'AI tailoring could not complete. Check the server logs and selected model.') from exc
     return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings}
 
 

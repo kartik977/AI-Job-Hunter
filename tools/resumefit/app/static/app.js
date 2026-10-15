@@ -23,7 +23,8 @@ async function analyze() {
   $('workingFilename').textContent=result.filename; counts();render();
   $('editor-section').hidden=false;$('editor-section').scrollIntoView({behavior:'smooth',block:'start'});
   if (state.pdfEnabled){const iframe=document.createElement('iframe');iframe.title='Preview of original resume';iframe.src='/api/preview/'+encodeURIComponent(state.session);$('previewFrame').replaceChildren(iframe);}else{$('previewFrame').textContent='PDF preview requires LibreOffice. DOCX editing is still available.';$('pdfBtn').disabled=true;$('previewToggle').disabled=true;}
-  if(!result.ai_enabled) notice($('editorNotice'),'AI is not configured on this server. You can edit every eligible line and export; clicking Generate suggestions will locally reorder only your existing skills that appear in the JD.','warning');
+  if(!result.ai_enabled) notice($('editorNotice'),'AI is not configured. Add GROQ_API_KEY to .env for free-tier AI rewriting, then restart the website. You can still edit manually and download DOCX.','warning');
+  else notice($('editorNotice'),result.ai_provider==='groq'?'Groq AI is connected (free tier, subject to usage limits). Click Generate suggestions to tailor your resume.':'OpenAI AI is connected. Click Generate suggestions to tailor your resume.');
  } catch(e){notice($('mainNotice'),e.message,'error');}
  finally{setBusy(btn,false);updateReady();}
 }

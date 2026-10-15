@@ -27,20 +27,45 @@ STRICT RULES:
 """
 
 
+def _usable_key(value: str | None) -> str:
+    """A copied .env example must not accidentally enable a paid provider."""
+    key = (value or '').strip()
+    return '' if not key or key.lower().startswith(('your_', 'replace_', 'paste_')) else key
+
+
+def active_provider() -> str:
+    """Prefer the Groq free tier when available; OpenAI is optional."""
+    if _usable_key(os.getenv('GROQ_API_KEY')):
+        return 'groq'
+    if _usable_key(os.getenv('OPENAI_API_KEY')):
+        return 'openai'
+    return 'local'
+
+
 def suggest(candidates: list[Candidate], job_description: str, full_resume_text: str) -> tuple[dict[str, str], str, list[str]]:
-    """Return suggestions, mode, warnings. Fallback never adds career facts."""
-    key = os.getenv('OPENAI_API_KEY')
-    if not key:
+    """Return suggestions, provider name, and warnings. Never invent facts."""
+    provider = active_provider()
+    if provider == 'local':
         return (
             heuristic_skill_sort(candidates, job_description),
             'local',
-            ['AI rewriting is not enabled: set OPENAI_API_KEY on the server. '
-             'Local mode only reorders existing skills mentioned in the JD; '
-             'you can still edit each bullet and export.'],
+            ['AI rewriting is not enabled. Add GROQ_API_KEY (free tier) to .env, '
+             'or optionally OPENAI_API_KEY. In local mode only existing skills '
+             'can be reordered; manual edits and export still work.'],
         )
-    from openai import OpenAI
 
-    client = OpenAI(api_key=key, timeout=80.0)
+    # Groq offers an OpenAI-compatible chat completions endpoint, so no second SDK is needed.
+    from openai import OpenAI
+    if provider == 'groq':
+        client = OpenAI(api_key=_usable_key(os.getenv('GROQ_API_KEY')),
+                        base_url='https://api.groq.com/openai/v1',
+                        timeout=80.0, max_retries=1)
+        model = os.getenv('GROQ_MODEL') or 'openai/gpt-oss-20b'
+    else:
+        client = OpenAI(api_key=_usable_key(os.getenv('OPENAI_API_KEY')),
+                        timeout=80.0, max_retries=1)
+        model = os.getenv('OPENAI_MODEL') or 'gpt-4o-mini'
+
     payload: dict[str, Any] = {
         'job_description': job_description[:22000],
         'full_original_resume_for_factual_reference': full_resume_text[:25000],
@@ -50,7 +75,7 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         ],
     }
     response = client.chat.completions.create(
-        model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+        model=model,
         temperature=0.15,
         response_format={'type': 'json_object'},
         messages=[
@@ -83,4 +108,4 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         if len(revised) > len(original) * 1.3 + 12:
             warnings.append(f'{ident}: suggestion is over 30% longer; review for line wrapping.')
         changes[ident] = revised
-    return changes, 'ai', warnings
+    return changes, provider, warnings
