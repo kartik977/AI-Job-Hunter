@@ -42,6 +42,40 @@ def active_provider() -> str:
     return 'local'
 
 
+
+def _compact_payload(candidates: list[Candidate], job_description: str, full_resume_text: str, provider: str):
+    """Conserve Groq's free-tier token budget; report any lines not sent."""
+    if provider != 'groq':
+        return ({
+            'job_description': job_description[:22000],
+            'full_original_resume_for_factual_reference': full_resume_text[:25000],
+            'editable_lines': [
+                {'id': c.id, 'type': c.category, 'text': c.editable_original}
+                for c in candidates[:110]
+            ],
+        }, [])
+    # Keep under Groq's free-tier 8K TPM limit, including response tokens.
+    limit = 6500
+    used = 0
+    lines = []
+    for candidate in candidates[:110]:
+        record = {'id': candidate.id, 'type': candidate.category, 'text': candidate.editable_original}
+        cost = len(json.dumps(record, ensure_ascii=False))
+        if used + cost > limit:
+            break
+        used += cost
+        lines.append(record)
+    warnings = []
+    if len(lines) < len(candidates):
+        warnings.append(f'Groq free-tier request size: only {len(lines)} of {len(candidates)} editable lines were sent to AI. You can still edit the remaining lines manually.')
+    if len(job_description) > 4500:
+        warnings.append('The job description was shortened for Groq free-tier limits.')
+    return ({
+        'job_description': job_description[:4500],
+        'full_original_resume_for_factual_reference': full_resume_text[:4500],
+        'editable_lines': lines,
+    }, warnings)
+
 def suggest(candidates: list[Candidate], job_description: str, full_resume_text: str) -> tuple[dict[str, str], str, list[str]]:
     """Return suggestions, provider name, and warnings. Never invent facts."""
     provider = active_provider()
@@ -66,30 +100,32 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
                         timeout=80.0, max_retries=1)
         model = os.getenv('OPENAI_MODEL') or 'gpt-4o-mini'
 
-    payload: dict[str, Any] = {
-        'job_description': job_description[:22000],
-        'full_original_resume_for_factual_reference': full_resume_text[:25000],
-        'editable_lines': [
-            {'id': c.id, 'type': c.category, 'text': c.editable_original}
-            for c in candidates[:110]
-        ],
-    }
-    response = client.chat.completions.create(
-        model=model,
-        temperature=0.15,
-        response_format={'type': 'json_object'},
-        messages=[
+    payload, warnings = _compact_payload(candidates, job_description, full_resume_text, provider)
+    request: dict[str, Any] = {
+        'model': model,
+        'temperature': 0.15,
+        'response_format': {'type': 'json_object'},
+        'messages': [
             {'role': 'system', 'content': INSTRUCTIONS},
             {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)},
         ],
-    )
-    data = json.loads(response.choices[0].message.content or '{}')
+    }
+    if provider == 'groq':
+        request['max_completion_tokens'] = 2200
+        if model.startswith('openai/gpt-oss-'):
+            request['extra_body'] = {'reasoning_effort': 'low'}
+    response = client.chat.completions.create(**request)
+    if response.choices[0].finish_reason == 'length':
+        raise ValueError('AI response reached its output limit. Try a shorter job description or a shorter resume.')
+    try:
+        data = json.loads(response.choices[0].message.content or '{}')
+    except json.JSONDecodeError as exc:
+        raise ValueError('AI returned invalid JSON. Try Generate Suggestions again.') from exc
     entries = data.get('changes', [])
     if not isinstance(entries, list):
         raise ValueError('AI returned an unexpected response.')
     valid = {c.id: c for c in candidates}
     changes: dict[str, str] = {}
-    warnings: list[str] = []
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not isinstance(entry.get('text'), str):
             continue
@@ -108,4 +144,6 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         if len(revised) > len(original) * 1.3 + 12:
             warnings.append(f'{ident}: suggestion is over 30% longer; review for line wrapping.')
         changes[ident] = revised
+    if provider == 'groq' and not changes and not warnings:
+        warnings.append('The model returned no safe rewrites. Try a shorter job description or edit the suggestions manually.')
     return changes, provider, warnings
