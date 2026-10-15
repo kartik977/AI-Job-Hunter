@@ -83,3 +83,11 @@ app/static/*         self-contained website UI
 requirements.txt
 start.sh
 ```
+
+## If Generate Suggestions fails
+
+- Check http://localhost:8000/api/health and confirm that the selected `ai_provider` is `groq`. This verifies configuration, not whether the key is valid.
+- If your key is rejected, verify `GROQ_API_KEY` in your local `.env` and restart `./start.sh`. Never commit or share your real key.
+- Groq's free tier has an 8K tokens/minute limit for `openai/gpt-oss-20b`. ResumeFit reduces prompt size; for unusually large resumes only a portion of bullets may receive AI suggestions, and the others stay manually editable.
+- If the model is reported unavailable, configure `GROQ_MODEL=openai/gpt-oss-20b` and restart.
+- The terminal logs the provider, HTTP status, safe error code, and exception type without including raw resume data or API keys. Share only that diagnostic information for help.
