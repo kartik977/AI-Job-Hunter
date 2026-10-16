@@ -62,6 +62,19 @@
       <section class="editor-section" id="editor-section" hidden>
         <div class="section-line"><span class="section-step">02</span><h2>Review every suggested change</h2><span class="section-hint">You approve exactly what gets edited</span></div>
         <div class="summary-strip"><div class="filename-row"><div class="doc-icon">W</div><div><strong id="workingFilename">resume.docx</strong><div class="muted">Your original file stays unchanged</div></div></div><div class="counts"><span><strong id="totalLines">0</strong> editable lines</span><span><strong id="acceptedLines">0</strong> selected edits</span></div><button id="restartBtn" class="btn btn-quiet">Start over</button></div>
+        <section class="ats-dashboard" id="atsPanel" aria-labelledby="atsTitle" hidden>
+          <div class="ats-head"><div><span class="ats-eyebrow">APPLICATION ALIGNMENT</span><h3 id="atsTitle">Estimated ATS / JD match</h3><p>Keyword-evidence coverage for this job, not a prediction from an employer's ATS.</p></div><span class="ats-method">No extra AI request</span></div>
+          <div class="ats-metrics">
+            <div class="ats-metric"><div class="ats-label">Original resume</div><strong id="atsOriginalScore">—</strong><div class="ats-track"><div id="atsOriginalBar" class="ats-fill ats-fill-original"></div></div></div>
+            <div class="ats-arrow" aria-hidden="true">→</div>
+            <div class="ats-metric"><div class="ats-label">With selected edits</div><strong id="atsEditedScore">—</strong><div class="ats-track"><div id="atsEditedBar" class="ats-fill"></div></div></div>
+          </div>
+          <p class="ats-summary" id="atsSummary" role="status">Calculating document match…</p>
+          <div class="ats-requirements-head"><strong>Job requirements</strong><span id="atsReqCount"></span></div>
+          <div class="ats-requirements" id="atsRequirements"></div>
+          <p class="ats-disclaimer">This is a transparent text-matching estimate, not a real ATS score or an 80–85% guarantee. Missing requirements should only be added when they reflect your actual experience. Rewording can raise the estimate without proving a qualification.</p>
+          <div class="ats-error" id="atsError" role="status" hidden></div>
+        </section>
         <div class="editor-actions"><div><h3>Tailor to this job</h3><p>Suggestions only affect summary, skills and bullet points. Edit or uncheck anything.</p></div><button id="tailorBtn" class="btn btn-dark">✧ Generate suggestions <span>→</span></button></div>
         <div id="editorNotice" class="notice" hidden role="alert"></div>
         <div class="workspace">
