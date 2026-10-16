@@ -268,7 +268,11 @@ def edit_docx(source: Path, destination: Path, selections: dict[str, str],
     doc = Document(str(source))
     if candidates is None:
         candidates = find_candidates(doc)
-    valid = {c.id: c for c in candidates}
+    # Never trust a caller-supplied candidate list as edit authorization.
+    # Re-identify allowed summary, skills and bullet nodes in the source DOCX.
+    actual = {c.id: c for c in find_candidates(doc)}
+    valid = {c.id: actual[c.id] for c in candidates if c.id in actual and
+             c.category == actual[c.id].category and c.original == actual[c.id].original}
     paragraphs = _paragraphs(doc)
     for key, user_replacement in selections.items():
         if key not in valid:
