@@ -130,3 +130,22 @@ Groq is used when `GROQ_API_KEY` is set, and the existing optional OpenAI fallba
 continues to work. Free-tier Groq rate limits apply. This feature does not invent
 qualifications intentionally, but AI output still needs human review. It cannot
 guarantee ATS results, interviews, or employment.
+
+## Strict JD matching and optional GPT-6
+
+ResumeFit **only** offers changes to original DOCX summary, skills and experience/project bullet text.
+Headings, company names, dates, education, certifications, graphics, margins, document structures,
+and unapproved lines remain unchanged. Page breaks may still shift if replacement text wraps.
+
+AI now identifies priority JD requirements and selects relevant original resume evidence
+from across the document, including older roles and projects, to make more substantive rewrites.
+Skills are *reordered* only when matching skills are already present: none are removed or invented.
+Proposed rewrites with unsupported technologies or changed numbers are automatically rejected.
+**80–85% alignment is a goal, not an ATS score or a guarantee.** Missing qualifications are
+never invented to achieve the target.
+
+Groq remains the free-tier default. To **opt into the paid OpenAI API** instead, configure in
+Render > Environment: AI_PROVIDER=openai, OPENAI_API_KEY=<your own key>, and
+OPENAI_MODEL=gpt-6-luna (cost-conscious) or gpt-6-sol (more capable).
+OpenAI API billing is separate from ChatGPT Plus. Never commit secret keys.
+To return to free Groq, remove AI_PROVIDER or set it to groq.

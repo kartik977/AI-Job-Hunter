@@ -137,3 +137,97 @@ def test_model_cannot_delete_skills_or_change_numbers(monkeypatch):
     assert skills.id not in result  # No removal of Python, React, or SQL allowed.
     assert bullet.id not in result  # Changed numeric claim rejected.
     assert any('numerical claims' in w for w in warnings)
+
+
+def test_provider_override_is_opt_in(monkeypatch):
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-groq')
+    monkeypatch.setenv('OPENAI_API_KEY', 'sk-openai')
+    monkeypatch.setenv('AI_PROVIDER', 'openai')
+    assert ai.active_provider() == 'openai'
+    monkeypatch.delenv('OPENAI_API_KEY')
+    assert ai.active_provider() == 'local'
+    monkeypatch.setenv('AI_PROVIDER', 'groq')
+    assert ai.active_provider() == 'groq'
+
+
+def test_gpt6_luna_does_not_send_unsupported_temperature(monkeypatch):
+    observed = {}
+    class FakeCompletion:
+        def create(self, **kw):
+            observed.update(kw)
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop',
+                message=SimpleNamespace(content='{"changes":[]}')
+            )])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.setenv('AI_PROVIDER', 'openai')
+    monkeypatch.setenv('OPENAI_API_KEY', 'sk-openai-test')
+    monkeypatch.setenv('OPENAI_MODEL', 'gpt-6-luna')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    ai.suggest(_sample(), 'Java enterprise APIs ' * 20,
+               'Software developer built Java enterprise APIs')
+    assert observed['model'] == 'gpt-6-luna'
+    assert 'temperature' not in observed
+    assert observed['max_completion_tokens'] == 4600
+
+
+def test_original_resume_tail_keeps_relevant_project_evidence():
+    full = ('Full Name\nname@example.com\n' +
+            '\n'.join('Unrelated graphical design dashboard features ' + str(i)
+                      for i in range(60)) +
+            '\nDesigned Java Spring Boot banking APIs with Cassandra for payment transactions.')
+    priority = ['Build Java Spring Boot banking APIs and payment services']
+    text = ai._resume_evidence(full, priority, 360)
+    assert 'Full Name' in text
+    assert 'Cassandra for payment' in text
+
+
+def test_missing_technology_is_never_added_from_job_description(monkeypatch):
+    original = 'Improved backend processing reliability with Java and SQL services.'
+    record = _candidate('bullet', original, 'p12')
+    class FakeCompletion:
+        def create(self, **kw):
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop', message=SimpleNamespace(
+                    content='{"changes":[{"id":"p12","text":"Engineered Kafka event pipelines for dependable data ingestion using Java and SQL services."}]}'
+                )
+            )])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    changes, provider, warnings = ai.suggest([record], 'Event-driven Kafka architecture ' * 12, original)
+    assert provider == 'groq'
+    assert 'p12' not in changes
+    assert any('not evidenced' in item for item in warnings)
+
+
+def test_only_model_supplied_candidate_ids_can_be_rewritten(monkeypatch):
+    original = 'Maintained data services and improved performance for an internal platform.'
+    record = _candidate('bullet', original, 'p12')
+    omitted = _candidate('bullet', 'Maintained application services using Java.', 'p777')
+    class FakeCompletion:
+        def create(self, **kw):
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop', message=SimpleNamespace(
+                    content='{"changes":[{"id":"p777","text":"Implemented scalable Java applications and APIs supporting backend workflow integrations."}]}'
+                )
+            )])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    def only_one(items, jd, resume, provider):
+        return ({'editable_lines': [{'id': 'p12', 'text': original, 'type': 'bullet'}],
+                 'priority_requirements': [], 'job_description': jd,
+                 'full_original_resume_for_factual_reference': resume}, [])
+    monkeypatch.setattr(ai, '_compact_payload', only_one)
+    changes, _, _ = ai.suggest([record, omitted], 'Backend Java API experience ' * 12,
+                               original + '\n' + omitted.original)
+    assert not changes

@@ -138,3 +138,30 @@ def test_cover_letter_endpoint_rejects_invalid_session(monkeypatch, tmp_path):
     with TestClient(main.app) as client:
         response=client.post('/api/cover-letter',json={'session_id':'0'*32,'jd':JD})
         assert response.status_code == 404
+
+
+def test_gpt6_cover_letter_uses_selected_paid_provider_without_temperature(monkeypatch):
+    seen = {}
+    parts = [
+        'I am applying for your backend role and bring documented experience building Java Spring Boot services.',
+        'I have built payment services using PostgreSQL and improved API response time by 35% in my documented work.',
+        'I would be glad to discuss how my existing backend development experience could contribute to this team.',
+    ]
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            seen['client'] = kwargs
+            def create(**options):
+                seen['settings'] = options
+                return fake_response(parts)
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setenv('OPENAI_API_KEY', 'sk-test')
+    monkeypatch.setenv('AI_PROVIDER', 'openai')
+    monkeypatch.setenv('OPENAI_MODEL', 'gpt-6-luna')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    result = cover_letter.generate(RESUME, JD, 'Company', 'Backend Developer')
+    assert 'Dear Company Hiring Team' in result
+    assert seen['settings']['model'] == 'gpt-6-luna'
+    assert 'temperature' not in seen['settings']
+    assert seen['settings']['max_completion_tokens'] == 2600
+    assert 'base_url' not in seen['client']

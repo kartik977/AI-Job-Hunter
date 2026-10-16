@@ -72,7 +72,7 @@ def generate(resume_text: str, jd: str, company: str = '', role: str = '') -> st
     else:
         client = OpenAI(api_key=_usable_key(os.getenv('OPENAI_API_KEY')),
                         timeout=70, max_retries=1)
-        model = os.getenv('OPENAI_MODEL') or 'gpt-4o-mini'
+        model = os.getenv('OPENAI_MODEL') or 'gpt-6-luna'
 
     payload = {
         'company_name_if_user_provided': company.strip(),
@@ -84,16 +84,21 @@ def generate(resume_text: str, jd: str, company: str = '', role: str = '') -> st
     settings = {
         'model': model,
         'response_format': {'type': 'json_object'},
-        'temperature': 0.25,
         'messages': [
             {'role': 'system', 'content': SYSTEM_PROMPT},
             {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)},
         ],
     }
     if provider == 'groq':
+        settings['temperature'] = 0.25
         settings['max_completion_tokens'] = 1300
         if model.startswith('openai/gpt-oss-'):
             settings['extra_body'] = {'reasoning_effort': 'low'}
+    else:
+        # GPT-6 and GPT-5.6 reject custom temperature in this endpoint.
+        if not model.startswith(('gpt-6', 'gpt-5.6')):
+            settings['temperature'] = 0.25
+        settings['max_completion_tokens'] = 2600
     result = client.chat.completions.create(**settings)
     if result.choices[0].finish_reason == 'length':
         raise ValueError('Cover letter generation reached the model limit. Try again.')

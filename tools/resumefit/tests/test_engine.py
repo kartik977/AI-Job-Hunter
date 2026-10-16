@@ -110,3 +110,26 @@ def test_education_bullets_remain_protected(tmp_path):
     assert len(options)==1
     assert options[0].category=='bullet'
     assert 'Built user interfaces' in options[0].original
+
+
+def test_forged_candidate_cannot_edit_education_even_if_caller_supplies_it(tmp_path):
+    from app.engine import Candidate
+    source = tmp_path / 'source.docx'
+    doc = Document()
+    doc.add_paragraph('EDUCATION')
+    doc.add_paragraph('Bachelor of Science in Computer Science, 2020')
+    doc.add_paragraph('PROFESSIONAL EXPERIENCE')
+    doc.add_paragraph('Built reliable REST APIs with Python and SQL across enterprise services.',
+                      style='List Bullet')
+    doc.save(source)
+    forged = Candidate(id='p1', index=1, category='bullet',
+                       original='Bachelor of Science in Computer Science, 2020',
+                       editable_original='Bachelor of Science in Computer Science, 2020',
+                       locked_prefix='', section='experience', style='Normal')
+    try:
+        edit_docx(source, tmp_path / 'changed.docx',
+                  {'p1': 'Fake degree in machine learning from Harvard'}, [forged])
+    except ValueError as exc:
+        assert 'not an allowed editable line' in str(exc)
+    else:
+        raise AssertionError('Education edit unexpectedly allowed')

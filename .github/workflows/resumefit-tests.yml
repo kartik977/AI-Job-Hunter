@@ -1,0 +1,25 @@
+name: ResumeFit Python tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/resumefit/**"
+      - ".github/workflows/resumefit-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/resumefit/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/resumefit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
