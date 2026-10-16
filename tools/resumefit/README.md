@@ -149,3 +149,18 @@ Render > Environment: AI_PROVIDER=openai, OPENAI_API_KEY=<your own key>, and
 OPENAI_MODEL=gpt-6-luna (cost-conscious) or gpt-6-sol (more capable).
 OpenAI API billing is separate from ChatGPT Plus. Never commit secret keys.
 To return to free Groq, remove AI_PROVIDER or set it to groq.
+
+## Estimated ATS / JD match dashboard
+
+After analyzing a DOCX resume, ResumeFit shows an **estimated JD keyword-evidence score**
+for the original resume and the current selected edits, plus up to 10 requirement
+rows marked Matched, Partial or Missing with grounded resume text evidence.
+Changes to approved summary, skills and experience/project bullets refresh the estimate.
+The score does not change your DOCX; the approved edits remain the sole source of edits.
+
+**Not a real employer ATS result:** The deterministic local scorer compares keywords
+within job requirements against resume paragraphs. It cannot assess true competency,
+predict recruiter decisions, validate user-typed claims, or guarantee 80–85% or an
+interview. Its value is identifying likely keyword gaps, not certifying eligibility.
+No Groq/OpenAI API call is used to calculate the score, so refreshing it consumes
+no extra model tokens.
