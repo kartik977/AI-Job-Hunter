@@ -21,7 +21,6 @@ from .engine import Candidate, edit_docx, find_candidates, serialize_candidates,
 from .ai import suggest, active_provider
 from .access import access_response
 from .jd import focus_requirements
-from .ats import estimate as estimate_jd_match
 from .cover_letter import generate as generate_cover_letter, make_docx as make_cover_docx
 
 logger = logging.getLogger(__name__)
@@ -66,12 +65,6 @@ class ExportRequest(BaseModel):
     session_id: str
     lines: list[EditLine] = Field(default_factory=list, max_length=200)
     output_format: str = 'docx'
-
-
-class ATSRequest(BaseModel):
-    session_id: str
-    jd: str = Field(min_length=50, max_length=30000)
-    lines: list[EditLine] = Field(default_factory=list, max_length=200)
 
 
 class CoverLetterRequest(BaseModel):
@@ -233,37 +226,6 @@ def tailor(req: TailorRequest):
             'focus': focus_requirements(req.jd, limit=3)}
 
 
-
-
-def _score_resume_text(session: Path, lines: list[EditLine]) -> str:
-    """Preview only approved text edits; verify every ID against the source DOCX."""
-    doc = Document(str(session / 'source.docx'))
-    actual = {item.id: item for item in find_candidates(doc)}
-    recorded = {item['id']: item for item in _source_data(session)['candidates']}
-    paragraphs = doc.element.body.xpath('.//w:p')
-    contents = [''.join(node.text or '' for node in para.xpath('.//w:t'))
-                for para in paragraphs]
-    seen = set()
-    for item in lines:
-        if item.id in seen:
-            raise HTTPException(400, 'Duplicate selected resume line.')
-        seen.add(item.id)
-        candidate = actual.get(item.id)
-        old = recorded.get(item.id)
-        if (candidate is None or old is None or candidate.original != old['original']
-                or candidate.category != old['category']):
-            raise HTTPException(422, 'Score preview may edit only approved resume paragraphs.')
-        contents[candidate.index] = candidate.locked_prefix + item.text.strip()
-    return '\n'.join(contents)
-
-
-@app.post('/api/ats-score')
-def ats_score(req: ATSRequest):
-    """Text-only JD alignment estimate; does not call Groq or alter the resume."""
-    session = _require_session(req.session_id)
-    original = _source_data(session)['full_resume_text']
-    after = _score_resume_text(session, req.lines) if req.lines else original
-    return estimate_jd_match(req.jd, original, after)
 
 
 def _cover_resume_text(session: Path, lines: list[EditLine]) -> str:

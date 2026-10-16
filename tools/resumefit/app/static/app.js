@@ -11,71 +11,7 @@ for (const e of ['dragenter','dragover']) zone.addEventListener(e, ev => {ev.pre
 for (const e of ['dragleave','drop']) zone.addEventListener(e, ev => {ev.preventDefault(); zone.classList.remove('dragged');});
 zone.addEventListener('drop', ev => { const files=ev.dataTransfer.files; if(!files.length)return; try {fileInput.files = files;fileInput.dispatchEvent(new Event('change'));} catch (_) {notice($('mainNotice'),'Please click the upload area to select a file.','warning');}});
 async function jsonFetch(url, options={}) { const res=await fetch(url, options); let result; try {result=await res.json();} catch{throw new Error('Server returned an invalid response.');} if(!res.ok) throw new Error(typeof result.detail==='string'?result.detail:'Request failed.'); return result; }
-function counts() { $('totalLines').textContent=state.candidates.length; $('allCount').textContent=state.candidates.length; $('acceptedLines').textContent=Object.values(state.edits).filter(e=>e.checked && e.text.trim()).length; scheduleAtsUpdate(); }
-
-let atsTimer = null;
-let atsGeneration = 0;
-function scoreLabel(value) { return Number.isFinite(value) ? value + '%' : '—'; }
-function renderAtsScores(data) {
- const before=data.original_score, after=data.tailored_score;
- $('atsOriginalScore').textContent=scoreLabel(before);
- $('atsEditedScore').textContent=scoreLabel(after);
- $('atsOriginalBar').style.width=(Number.isFinite(before)?Math.min(100,Math.max(0,before)):0)+'%';
- $('atsEditedBar').style.width=(Number.isFinite(after)?Math.min(100,Math.max(0,after)):0)+'%';
- const list=$('atsRequirements');
- list.replaceChildren();
- const rows=data.requirements||[];
- $('atsReqCount').textContent=rows.length+' requirement'+(rows.length===1?'':'s')+' reviewed';
- if(!rows.length){
-  $('atsSummary').textContent='Could not isolate clear requirements in this JD. Try pasting the full responsibilities and qualifications.';
-  return;
- }
- const totals={matched:0,partial:0,missing:0};
- for(const row of rows){
-  const status=['matched','partial','missing'].includes(row.tailored_status)?row.tailored_status:'missing';
-  totals[status]++;
-  const card=make('div','ats-requirement ats-'+status);
-  const header=make('div','ats-req-header');
-  header.append(make('span','ats-req-label',row.requirement),make('span','ats-status',status==='matched'?'Matched':status==='partial'?'Partial':'Missing'));
-  card.append(header);
-  if(row.original_status!==row.tailored_status){
-   const original=['matched','partial','missing'].includes(row.original_status)?row.original_status:'missing';
-   card.append(make('div','ats-req-change','Originally '+original+' → now '+status));
-  }
-  if(row.evidence && status!=='missing') card.append(make('div','ats-evidence','Text evidence: '+row.evidence));
-  list.append(card);
- }
- const delta=Number.isFinite(before)&&Number.isFinite(after)?after-before:0;
- const signal=delta>0?' ↑ '+delta+' points':delta<0?' ↓ '+Math.abs(delta)+' points':' · unchanged';
- $('atsSummary').textContent=totals.matched+' matched · '+totals.partial+' partial · '+totals.missing+' missing'+signal+'. Scores reflect keyword coverage, not a hiring prediction.';
-}
-function scheduleAtsUpdate(delay=600) {
- clearTimeout(atsTimer);
- const generation=++atsGeneration;
- const panel=$('atsPanel');
- if(!state.session){panel.hidden=true;return;}
- panel.hidden=false;
- $('atsError').hidden=true;
- if(jdField.value.trim().length<50){
-  $('atsSummary').textContent='Paste at least 50 characters of job requirements to calculate alignment.';
-  return;
- }
- $('atsSummary').textContent='Calculating keyword-evidence coverage…';
- atsTimer=setTimeout(async()=>{
-  const request={session_id:state.session,jd:jdField.value,lines:chosenLines()};
-  try {
-   const result=await jsonFetch('/api/ats-score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
-   if(generation!==atsGeneration)return;
-   renderAtsScores(result);
-  }catch(error){
-   if(generation!==atsGeneration)return;
-   $('atsSummary').textContent='Unable to calculate the JD match estimate right now.';
-   $('atsError').textContent=error.message;
-   $('atsError').hidden=false;
-  }
- },delay);
-}
-jdField.addEventListener('input',()=>{if(state.session)scheduleAtsUpdate();});
+function counts() { $('totalLines').textContent=state.candidates.length; $('allCount').textContent=state.candidates.length; $('acceptedLines').textContent=Object.values(state.edits).filter(e=>e.checked && e.text.trim()).length; }
 
 function fileName() { return state.originalName || 'resume.docx'; }
 async function analyze() {
@@ -139,7 +75,7 @@ async function download(format){if(!state.session)return;const btn=format==='pdf
  const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName().replace(/\.docx$/i,'')+'_Tailored.'+format;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
  }catch(e){notice($('editorNotice'),e.message,'error');window.scrollTo({top:$('editor-section').offsetTop,behavior:'smooth'});}finally{setBusy(btn,false);}}
 $('docxBtn').addEventListener('click',()=>download('docx'));$('pdfBtn').addEventListener('click',()=>download('pdf'));
-$('restartBtn').addEventListener('click',async()=>{clearTimeout(atsTimer);atsGeneration++;$('atsPanel').hidden=true;letterDraftSource=null;$('letterResult').hidden=true;letterText.value='';notice($('letterNotice'),'');if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
+$('restartBtn').addEventListener('click',async()=>{letterDraftSource=null;$('letterResult').hidden=true;letterText.value='';notice($('letterNotice'),'');if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
 updateReady();
 
 async function togglePreview(){
