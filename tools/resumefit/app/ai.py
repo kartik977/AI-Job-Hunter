@@ -176,7 +176,7 @@ def _compact_payload(candidates: list[Candidate], job_description: str,
     if len(lines) < len(eligible):
         warnings.append(
             f'Only {len(lines)} of {len(eligible)} summary/bullet lines fit this AI request. '
-            'The other lines stay unchanged and can still be edited manually.'
+            'The remaining lines stay unchanged and can still be edited manually.'
         )
     # An actual requirements list matters more than introductory company marketing.
     jd_digest = '\n'.join(priorities)
