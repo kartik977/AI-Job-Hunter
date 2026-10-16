@@ -231,3 +231,46 @@ def test_only_model_supplied_candidate_ids_can_be_rewritten(monkeypatch):
     changes, _, _ = ai.suggest([record, omitted], 'Backend Java API experience ' * 12,
                                original + '\n' + omitted.original)
     assert not changes
+
+
+
+def test_light_jd_reframe_is_accepted_and_expansive_rewrite_is_rejected(monkeypatch):
+    """Light truthful changes are useful; a large invented narrative isn't."""
+    source = 'Developed Java Spring Boot APIs for card payment processing, reducing API latency by 50%.'
+    bullet = _candidate('bullet', source, 'p33')
+    good = 'Optimized Java Spring Boot APIs for card payment processing, reducing response latency by 50%.'
+    giant = ('Designed and led an entirely new worldwide financial transaction ingestion platform '
+             'with Java Spring Boot APIs for card payment processing, reducing API latency by 50% '
+             'and powering forecasting, AI insights, massive datasets, and enterprise data pipelines.')
+    observed = {'text': good}
+    class FakeCompletion:
+        def create(self, **kw):
+            import json
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop',
+                message=SimpleNamespace(content=json.dumps({'changes': [
+                    {'id': 'p33', 'text': observed['text']}
+                ]}))
+            )])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    jd = 'Build backend Java Spring Boot APIs for financial card payment processing. ' * 3
+    choices, provider, warnings = ai.suggest([bullet], jd, source)
+    assert provider == 'groq'
+    assert choices == {'p33': good}
+    observed['text'] = giant
+    choices, provider, warnings = ai.suggest([bullet], jd, source)
+    assert choices == {}
+    assert any('too extensive' in item for item in warnings)
+
+
+def test_prompts_prevent_experience_transfers_and_score_chasing():
+    instructions = ai.INSTRUCTIONS
+    assert 'SAME job/project' in instructions
+    assert 'NEVER transfer tasks' in instructions
+    assert 'Do not optimize for a score' in instructions
+    assert 'one or two phrases' in instructions

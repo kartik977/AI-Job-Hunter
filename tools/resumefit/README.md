@@ -164,3 +164,8 @@ predict recruiter decisions, validate user-typed claims, or guarantee 80–85% o
 interview. Its value is identifying likely keyword gaps, not certifying eligibility.
 No Groq/OpenAI API call is used to calculate the score, so refreshing it consumes
 no extra model tokens.
+
+
+## Natural JD-focused experience rewriting
+
+The default AI now favors **light, truthful refinements** of each existing experience/project bullet: foreground relevant work for the JD, but keep the same task, scope, employer, technologies and results. It should not turn a contribution into ownership or copy responsibilities from a different role. Bullets rewritten much longer (over roughly 20% plus a short allowance) or drastically shorter are rejected for review; unchanged bullets remain untouched. Summary rewriting and existing skills prioritization still work as before. This is not a guaranteed ATS score or an instruction to add missing expertise.
