@@ -186,7 +186,7 @@ def _compact_payload(candidates: list[Candidate], job_description: str,
         jd_digest = (job_description[:500] + '\n\nKey JD requirements:\n' + jd_digest)
     jd_budget = 2900 if provider == 'groq' else 16000
     if len(jd_digest) > jd_budget or (provider == 'groq' and len(job_description) > jd_budget):
-        warnings.append('The JD was condensed to relevant requirements to fit AI limits.')
+        warnings.append('The JD was shortened to relevant requirements to fit AI limits.')
     return ({
         'priority_requirements': priorities,
         'job_description': jd_digest[:jd_budget],
