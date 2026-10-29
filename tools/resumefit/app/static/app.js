@@ -20,12 +20,17 @@ async function analyze() {
   const body=new FormData();body.append('file',f);
   const result=await jsonFetch('/api/analyze',{method:'POST',body});
   state.session=result.session_id;state.candidates=result.candidates;state.originalName=result.filename;state.pdfEnabled=result.pdf_enabled;
-  state.edits={};state.suggestionsGenerated=false;state.previewEdited=false;$('previewToggle').textContent='Preview my edits ↗'; for (const c of state.candidates) state.edits[c.id]={text:c.editable_original,checked:false};
+  state.edits={};state.suggestionsGenerated=false;$('tailorBtn').textContent='✧ Generate suggestions';state.previewEdited=false;$('previewToggle').textContent='Preview my edits ↗'; for (const c of state.candidates) state.edits[c.id]={text:c.editable_original,checked:false};
   $('workingFilename').textContent=result.filename; counts();render();
   $('editor-section').hidden=false;$('editor-section').scrollIntoView({behavior:'smooth',block:'start'});
   if (state.pdfEnabled){const iframe=document.createElement('iframe');iframe.title='Preview of original resume';iframe.src='/api/preview/'+encodeURIComponent(state.session);$('previewFrame').replaceChildren(iframe);}else{$('previewFrame').textContent='PDF preview requires LibreOffice. DOCX editing is still available.';$('pdfBtn').disabled=true;$('previewToggle').disabled=true;}
-  if(!result.ai_enabled) notice($('editorNotice'),'AI is not configured. Add GROQ_API_KEY to .env for free-tier AI rewriting, then restart the website. You can still edit manually and download DOCX.','warning');
-  else notice($('editorNotice'),result.ai_provider==='groq'?'Groq AI is connected (free tier, subject to usage limits). Click Generate suggestions to tailor your resume.':'OpenAI AI is connected. Click Generate suggestions to tailor your resume.');
+  if(!result.ai_enabled) {
+   notice($('editorNotice'),'AI is not configured. Add GROQ_API_KEY on the server to enable automatic JD tailoring. You can still edit manually and download DOCX.','warning');
+  }else{
+   notice($('editorNotice'),'Resume analyzed. Automatically tailoring summary, skills, and bullet points to the job description…');
+   btn.textContent='Tailoring to JD…';
+   await generateSuggestions();
+  }
  } catch(e){notice($('mainNotice'),e.message,'error');}
  finally{setBusy(btn,false);updateReady();}
 }
@@ -50,14 +55,20 @@ function render(){
   subHead.append(editLabel,make('span','word-count',''));
   const count=subHead.lastElementChild;
   const area=make('textarea','edit-textarea');area.value=model.text;area.setAttribute('aria-label',`Replacement for ${c.category} line ${c.id}`);
-  const updateCount=()=>{const originalLen=c.editable_original.length, delta=Math.round((area.value.length / Math.max(1,originalLen)-1)*100);count.textContent=(delta>=0?'+':'')+delta+'% length';count.classList.toggle('long',delta>15);};
+  const updateCount=()=>{
+   const originalLen=c.editable_original.length;
+   const delta=Math.round((area.value.length / Math.max(1,originalLen)-1)*100);
+   count.textContent=!isChanged()?'No change':delta===0?'Same length':(delta>0?'+':'')+delta+'% length change';
+   count.title='Text-length difference only — not a JD match score.';
+   count.classList.toggle('long',isChanged()&&delta>15);
+  };
   area.addEventListener('input',()=>{model.text=area.value;model.checked=isChanged();check.checked=model.checked;card.classList.toggle('accepted',model.checked);editLabel.textContent=model.checked?'MANUALLY EDITED REPLACEMENT':'UNCHANGED — NO EDIT';updateCount();counts();});
   updateCount();card.append(head,originalCap,original,subHead,area);list.appendChild(card);
  }
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click',()=>{state.filter=tab.dataset.filter;for(const t of document.querySelectorAll('.tab'))t.classList.toggle('selected',t===tab);render();});
 $('clearBtn').addEventListener('click',()=>{for(const model of Object.values(state.edits))model.checked=false;counts();render();});
-$('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;const btn=$('tailorBtn');setBusy(btn,true,'Generating suggestions…');notice($('editorNotice'),'');try{
+async function generateSuggestions(){if(!state.session)return;const btn=$('tailorBtn');if(btn.disabled)return;setBusy(btn,true,'Tailoring to JD…');notice($('editorNotice'),'Finding the best evidence-based matches for your JD…');try{
  const result=await jsonFetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.session,jd:jdField.value})});
  state.suggestionsGenerated=true;
  let rewritten=0, reordered=0;
@@ -72,7 +83,8 @@ $('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;cons
  const topFocus=(result.focus||[]).slice(0,2).map(t=>t.length>115?t.slice(0,112)+'…':t).join(' • ');
  const message=(rewritten||reordered?`${rewritten} substantive summary/bullet suggestion(s); ${reordered} skill list(s) prioritized without dropping existing skills. Review each suggestion before exporting. `:'No safe automatic changes found; you can edit lines manually. ')+(topFocus?'JD priorities: '+topFocus+'. ':'')+(result.warnings||[]).join(' ');
  notice($('editorNotice'),message,result.mode==='local'?'warning':'');
- }catch(e){notice($('editorNotice'),e.message,'error');}finally{setBusy(btn,false);}});
+ }catch(e){notice($('editorNotice'),'AI tailoring did not complete: '+e.message+' Your original resume is unchanged. Click Regenerate suggestions to retry.','error');}finally{setBusy(btn,false);btn.textContent='↻ Regenerate suggestions';}}
+$('tailorBtn').addEventListener('click',generateSuggestions);
 async function download(format){if(!state.session)return;const btn=format==='pdf'?$('pdfBtn'):$('docxBtn');setBusy(btn,true,'Preparing file…');notice($('editorNotice'),'');try{
  const lines=state.candidates.filter(c=>state.edits[c.id].checked).map(c=>({id:c.id,text:state.edits[c.id].text}));
  const response=await fetch('/api/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.session,lines,output_format:format})});

@@ -62,12 +62,12 @@
       <section class="editor-section" id="editor-section" hidden>
         <div class="section-line"><span class="section-step">02</span><h2>Review every suggested change</h2><span class="section-hint">You approve exactly what gets edited</span></div>
         <div class="summary-strip"><div class="filename-row"><div class="doc-icon">W</div><div><strong id="workingFilename">resume.docx</strong><div class="muted">Your original file stays unchanged</div></div></div><div class="counts"><span><strong id="totalLines">0</strong> editable lines</span><span><strong id="acceptedLines">0</strong> selected edits</span></div><button id="restartBtn" class="btn btn-quiet">Start over</button></div>
-        <div class="editor-actions"><div><h3>Tailor to this job</h3><p>Suggestions only affect summary, skills and bullet points. Edit or uncheck anything.</p></div><button id="tailorBtn" class="btn btn-dark">✧ Generate suggestions <span>→</span></button></div>
+        <div class="editor-actions"><div><h3>JD tailoring starts automatically</h3><p>After analyzing, AI proposes edits only to the summary, skills and bullet points. Unchanged lines are clearly labeled. Use the button to regenerate suggestions.</p></div><button id="tailorBtn" class="btn btn-dark">✧ Generate suggestions <span>→</span></button></div>
         <div id="editorNotice" class="notice" hidden role="alert"></div>
         <div class="workspace">
           <div class="review-column">
             <div class="review-head"><div class="tabs" role="tablist" aria-label="Filter editable lines"><button data-filter="all" class="tab selected">All <span id="allCount">0</span></button><button data-filter="summary" class="tab">Summary</button><button data-filter="skills" class="tab">Skills</button><button data-filter="bullet" class="tab">Bullets</button></div><button id="clearBtn" class="clear-action">Uncheck all</button></div>
-            <div class="review-sub">Original text is on top. Rewrite the field underneath, or accept an AI suggestion. Unchecked entries stay exactly as they were.</div>
+            <div class="review-sub">AI tailoring begins automatically after analysis. Only text marked Suggested replacement or Manually edited is a change. “No change” refers to text, not a JD match score. Unchecked entries stay exactly as they were.</div>
             <div id="lineList" class="line-list"></div>
           </div>
           <aside class="preview-column"><div class="preview-header"><div><strong id="previewTitle">Original format preview</strong><div class="muted" id="previewDesc">A reference of your uploaded Word file</div></div><button id="previewToggle" class="preview-toggle">Preview my edits ↗</button></div><div id="previewFrame"><div class="preview-wait">Preview becomes available once your DOCX is analyzed.</div></div><div class="preview-note">Word formatting is retained, but significantly longer text can change line wrapping and page count. Always review the exported file.</div></aside>
@@ -90,6 +90,6 @@
       <footer><span>ResumeFit <span class="muted">/ Format-first editor</span></span><span>Your facts stay yours. Review every edit before applying.</span></footer>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20261028-auto-tailor"></script>
 </body>
 </html>
