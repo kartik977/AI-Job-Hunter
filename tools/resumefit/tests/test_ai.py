@@ -62,16 +62,16 @@ def test_groq_compacts_large_input_without_losing_mappings(monkeypatch):
     payload, warnings = ai._compact_payload(lines, 'Java developer ' * 2000, 'REST APIs built ' * 3000, 'groq')
     assert len(payload['job_description']) <= 4500
     assert len(payload['full_original_resume_for_factual_reference']) <= 4500
-    assert len(payload['editable_lines']) == len(lines)
+    assert len(payload['editable_lines']) == 14
     assert any('shortened' in x for x in warnings)
 
 
 def test_groq_bounds_many_long_bullets():
     lines = []
     for i in range(70):
-        lines.append(Candidate(id=f'p{i}', index=i, category='bullet', original='A' * 450,
-                               editable_original='A' * 450, locked_prefix='', section='experience', style='List Bullet'))
-    payload, warnings = ai._compact_payload(lines, 'JD ' * 100, 'resume ' * 500, 'groq')
+        lines.append(Candidate(id=f'p{i}', index=i, category='bullet', original='Built reliable Java APIs for payments. ' + 'A' * 400,
+                               editable_original='Built reliable Java APIs for payments. ' + 'A' * 400, locked_prefix='', section='experience', style='List Bullet'))
+    payload, warnings = ai._compact_payload(lines, 'Responsibilities\n- Build reliable Java APIs for secure payment workflows', 'resume ' * 500, 'groq')
     assert 0 < len(payload['editable_lines']) < len(lines)
     assert any('remaining lines' in x for x in warnings)
     assert all('id' in r for r in payload['editable_lines'])
@@ -238,7 +238,7 @@ def test_light_jd_reframe_is_accepted_and_expansive_rewrite_is_rejected(monkeypa
     """Light truthful changes are useful; a large invented narrative isn't."""
     source = 'Developed Java Spring Boot APIs for card payment processing, reducing API latency by 50%.'
     bullet = _candidate('bullet', source, 'p33')
-    good = 'Optimized Java Spring Boot APIs for card payment processing, reducing response latency by 50%.'
+    good = 'Improved backend Java Spring Boot APIs for card payment processing, reducing response latency by 50%.'
     giant = ('Designed and led an entirely new worldwide financial transaction ingestion platform '
              'with Java Spring Boot APIs for card payment processing, reducing API latency by 50% '
              'and powering forecasting, AI insights, massive datasets, and enterprise data pipelines.')
@@ -271,6 +271,57 @@ def test_light_jd_reframe_is_accepted_and_expansive_rewrite_is_rejected(monkeypa
 def test_prompts_prevent_experience_transfers_and_score_chasing():
     instructions = ai.INSTRUCTIONS
     assert 'SAME job/project' in instructions
-    assert 'NEVER transfer tasks' in instructions
+    assert 'never transfer tasks' in instructions.lower()
     assert 'Do not optimize for a score' in instructions
-    assert 'one or two phrases' in instructions
+    assert '4-10 meaningful' in instructions
+
+
+
+def test_cosmetic_rewrites_must_gain_real_jd_specificity():
+    jd = ['Build backend banking APIs for debit card processing']
+    source = 'Built Java APIs for debit-card PIN checks and card-status updates.'
+    shuffle = 'Developed Java APIs for debit-card PIN verification and card-status updates.'
+    grounded = 'Developed backend Java APIs for debit-card PIN checks and card-status updates.'
+    assert not ai._jd_specific_gain(source, shuffle, jd)
+    assert ai._jd_specific_gain(source, grounded, jd)
+    assert not ai._jd_specific_gain(source, grounded, ['Build inventory reports with SQL'])
+
+
+def test_payload_prioritizes_14_relevant_bullets_with_nearby_context():
+    items = [_candidate('summary', 'Engineer who builds Java services.', 'p0')]
+    items[0].index=0
+    for n in range(1, 28):
+        b = _candidate('bullet',
+            f'Built Java backend APIs for banking card payment workflows in application {n}.',f'p{n}')
+        b.index=n
+        items.append(b)
+    resume = '\n'.join([c.original for c in items])
+    payload,warnings = ai._compact_payload(items,
+        'Responsibilities\n- Build backend APIs for secure banking card payments and workflows',
+        resume, 'groq')
+    assert len(payload['editable_lines']) == 14
+    assert payload['editable_lines'][0]['type'] == 'summary'
+    assert payload['editable_lines'][2]['role_context']
+    assert 'closest_jd_requirement' in payload['editable_lines'][1]
+    assert any('remaining lines' in warning for warning in warnings)
+
+
+def test_better_prompt_and_groq_reasoning_budget(monkeypatch):
+    observed={}
+    class FakeCompletion:
+        def create(self, **kw):
+            observed.update(kw)
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop',message=SimpleNamespace(content='{"changes":[]}'))])
+    class FakeOpenAI:
+        def __init__(self, **kw):
+            self.chat=SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY','gsk-test')
+    monkeypatch.setitem(sys.modules,'openai',SimpleNamespace(OpenAI=FakeOpenAI))
+    ai.suggest(_sample(),'Build REST APIs using Java for banking backend systems. '*4,
+               'Built REST APIs using Java.')
+    assert observed['max_completion_tokens']==3200
+    assert observed['extra_body']=={'reasoning_effort':'medium'}
+    assert observed['messages'][0]['role']=='user'
+    assert 'UNTRUSTED INPUT DATA' in observed['messages'][0]['content']
