@@ -163,3 +163,8 @@ ResumeFit prioritizes a focused group of the most relevant existing experience/p
 ## Summary-specific JD tailoring
 
 If the main AI pass doesn't generate a real summary improvement, ResumeFit makes one optional, compact summary-focused follow-up call. It can prioritize different evidenced accomplishments for different JDs and omit unrelated clauses or metrics without inventing new claims. If that call fails or still has no safe improvement, the summary stays unchanged. In the editor, an unchanged editable copy is explicitly labeled as such, rather than portrayed as an AI-tailored replacement. This may consume one additional AI request per tailoring attempt. No ATS score was added.
+
+
+## Automatic tailoring and length labels
+
+After uploading a DOCX and providing a JD, clicking **Analyze resume** parses the Word file and **automatically runs Generate suggestions** when the AI provider is configured. Re-running suggestions remains possible with the **Regenerate suggestions** button. If the provider returns an error or has a free-tier limit, the original resume stays unchanged, the error is shown, and manual editing/export still work. The editor uses **No change** for untouched paragraphs and **Same length** for genuine edits that happen to have equal character counts; percentage length changes are **not** ATS/JD-match scores. Only approved summary/skills/bullets edits are exported, and the cover letter feature is unchanged.
