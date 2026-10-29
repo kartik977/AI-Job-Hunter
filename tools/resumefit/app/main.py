@@ -21,6 +21,7 @@ from .engine import Candidate, edit_docx, find_candidates, serialize_candidates,
 from .ai import suggest, active_provider
 from .access import access_response
 from .jd import focus_requirements
+from .change_log import describe_changes
 from .cover_letter import generate as generate_cover_letter, make_docx as make_cover_docx
 
 logger = logging.getLogger(__name__)
@@ -218,12 +219,13 @@ def tailor(req: TailorRequest):
             # Only approved, developer-defined messages are returned; otherwise
             # avoid echoing any raw model output.
             if str(exc) in ('AI response reached its output limit. Try a shorter job description or a shorter resume.',
-                            'AI returned invalid JSON. Try Generate Suggestions again.',
+                            'AI returned invalid JSON. Try Tailor Resume again.',
                             'AI returned an unexpected response.'):
                 raise HTTPException(502, str(exc)) from exc
         raise HTTPException(502, f'{provider.title()} tailoring failed. Check the terminal for the HTTP status or error type (no API key needed).') from exc
     return {'suggestions': suggestions, 'mode': mode, 'warnings': warnings,
-            'focus': focus_requirements(req.jd, limit=3)}
+            'focus': focus_requirements(req.jd, limit=3),
+            'change_details': describe_changes(candidates, suggestions, req.jd)}
 
 
 

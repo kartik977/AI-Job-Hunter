@@ -168,3 +168,8 @@ If the main AI pass doesn't generate a real summary improvement, ResumeFit makes
 ## Automatic tailoring and length labels
 
 After uploading a DOCX and providing a JD, clicking **Analyze resume** parses the Word file and **automatically runs Generate suggestions** when the AI provider is configured. Re-running suggestions remains possible with the **Regenerate suggestions** button. If the provider returns an error or has a free-tier limit, the original resume stays unchanged, the error is shown, and manual editing/export still work. The editor uses **No change** for untouched paragraphs and **Same length** for genuine edits that happen to have equal character counts; percentage length changes are **not** ATS/JD-match scores. Only approved summary/skills/bullets edits are exported, and the cover letter feature is unchanged.
+
+
+## One-click resume tailoring and grounded change report
+
+The single **Tailor Resume** button uploads the original Word resume, extracts editable lines, runs JD tailoring automatically, preselects genuine suggested changes, and shows a **What changed and why** report. Each entry contains the actual original/replacement wording, the text that changed, and a relevant job requirement when supported by word overlap. This is an explanation of the edit, not a factual validation or ATS score. Only approved summary, skills and bullet changes enter the download; users can uncheck or adjust each entry. When LibreOffice is available, the selected tailored resume is shown in the preview automatically; original preview remains accessible. The original uploaded DOCX is never overwritten. API failures preserve the original and do not report success. No separate Generate Suggestions button exists.
