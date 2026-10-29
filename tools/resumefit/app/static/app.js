@@ -1,4 +1,4 @@
-const state = {session: null, candidates: [], edits: {}, filter: 'all', originalName: '', pdfEnabled: true, previewEdited: false, previewBlob: null};
+const state = {session: null, candidates: [], edits: {}, filter: 'all', originalName: '', pdfEnabled: true, previewEdited: false, previewBlob: null, suggestionsGenerated: false};
 const $ = id => document.getElementById(id);
 const fileInput = $('resumeFile'), jdField = $('jd');
 const notice = (el, message, kind = '') => {el.hidden = !message; el.textContent = message || ''; el.className = 'notice' + (kind ? ' ' + kind : '');};
@@ -20,7 +20,7 @@ async function analyze() {
   const body=new FormData();body.append('file',f);
   const result=await jsonFetch('/api/analyze',{method:'POST',body});
   state.session=result.session_id;state.candidates=result.candidates;state.originalName=result.filename;state.pdfEnabled=result.pdf_enabled;
-  state.edits={};state.previewEdited=false;$('previewToggle').textContent='Preview my edits ↗'; for (const c of state.candidates) state.edits[c.id]={text:c.editable_original,checked:false};
+  state.edits={};state.suggestionsGenerated=false;state.previewEdited=false;$('previewToggle').textContent='Preview my edits ↗'; for (const c of state.candidates) state.edits[c.id]={text:c.editable_original,checked:false};
   $('workingFilename').textContent=result.filename; counts();render();
   $('editor-section').hidden=false;$('editor-section').scrollIntoView({behavior:'smooth',block:'start'});
   if (state.pdfEnabled){const iframe=document.createElement('iframe');iframe.title='Preview of original resume';iframe.src='/api/preview/'+encodeURIComponent(state.session);$('previewFrame').replaceChildren(iframe);}else{$('previewFrame').textContent='PDF preview requires LibreOffice. DOCX editing is still available.';$('pdfBtn').disabled=true;$('previewToggle').disabled=true;}
@@ -38,16 +38,20 @@ function render(){
  for (const c of items){
   const model=state.edits[c.id];let card=make('article','edit-card'+(model.checked?' accepted':''));
   let head=make('div','edit-card-head'); const title=make('span','edit-tag '+c.category,({'summary':'SUMMARY','skills':'SKILLS','bullet':'BULLET POINT'})[c.category]);
-  const checkboxLabel=make('label','check-wrap');const check=document.createElement('input');check.type='checkbox';check.checked=model.checked;
+  const isChanged=()=>model.text.trim()!==c.editable_original.trim();
+  const checkboxLabel=make('label','check-wrap');const check=document.createElement('input');check.type='checkbox';check.checked=model.checked&&isChanged();
   checkboxLabel.append(check,document.createTextNode(' Include this edit'));
-  check.addEventListener('change',()=>{model.checked=check.checked;card.classList.toggle('accepted',model.checked);counts();});
+  check.addEventListener('change',()=>{model.checked=check.checked&&isChanged();check.checked=model.checked;card.classList.toggle('accepted',model.checked);counts();});
   head.append(title,checkboxLabel);
   const originalCap=make('div','original-caption','ORIGINAL');const original=make('div','original-text',c.original);
-  const subHead=make('div','suggest-label');subHead.append(make('span','','REPLACEMENT'),make('span','word-count',''));
+  const subHead=make('div','suggest-label');
+  const copyState=()=>model.text.trim()!==c.editable_original.trim();
+  const editLabel=make('span','',copyState()?'SUGGESTED REPLACEMENT':state.suggestionsGenerated?'UNCHANGED — NO AI SUGGESTION':'EDITABLE COPY — NOT YET TAILORED');
+  subHead.append(editLabel,make('span','word-count',''));
   const count=subHead.lastElementChild;
   const area=make('textarea','edit-textarea');area.value=model.text;area.setAttribute('aria-label',`Replacement for ${c.category} line ${c.id}`);
   const updateCount=()=>{const originalLen=c.editable_original.length, delta=Math.round((area.value.length / Math.max(1,originalLen)-1)*100);count.textContent=(delta>=0?'+':'')+delta+'% length';count.classList.toggle('long',delta>15);};
-  area.addEventListener('input',()=>{model.text=area.value;model.checked=(area.value.trim()!==c.editable_original.trim());check.checked=model.checked;card.classList.toggle('accepted',model.checked);updateCount();counts();});
+  area.addEventListener('input',()=>{model.text=area.value;model.checked=isChanged();check.checked=model.checked;card.classList.toggle('accepted',model.checked);editLabel.textContent=model.checked?'MANUALLY EDITED REPLACEMENT':'UNCHANGED — NO EDIT';updateCount();counts();});
   updateCount();card.append(head,originalCap,original,subHead,area);list.appendChild(card);
  }
 }
@@ -55,6 +59,7 @@ for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click
 $('clearBtn').addEventListener('click',()=>{for(const model of Object.values(state.edits))model.checked=false;counts();render();});
 $('tailorBtn').addEventListener('click', async()=>{if(!state.session)return;const btn=$('tailorBtn');setBusy(btn,true,'Generating suggestions…');notice($('editorNotice'),'');try{
  const result=await jsonFetch('/api/tailor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.session,jd:jdField.value})});
+ state.suggestionsGenerated=true;
  let rewritten=0, reordered=0;
  for(const [id,text] of Object.entries(result.suggestions)){
   const candidate=state.candidates.find(c=>c.id===id);
@@ -75,7 +80,7 @@ async function download(format){if(!state.session)return;const btn=format==='pdf
  const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName().replace(/\.docx$/i,'')+'_Tailored.'+format;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
  }catch(e){notice($('editorNotice'),e.message,'error');window.scrollTo({top:$('editor-section').offsetTop,behavior:'smooth'});}finally{setBusy(btn,false);}}
 $('docxBtn').addEventListener('click',()=>download('docx'));$('pdfBtn').addEventListener('click',()=>download('pdf'));
-$('restartBtn').addEventListener('click',async()=>{letterDraftSource=null;$('letterResult').hidden=true;letterText.value='';notice($('letterNotice'),'');if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
+$('restartBtn').addEventListener('click',async()=>{letterDraftSource=null;$('letterResult').hidden=true;letterText.value='';notice($('letterNotice'),'');if(state.session)try{await fetch('/api/session/'+state.session,{method:'DELETE'});}catch(_){}state.session=null;state.candidates=[];state.edits={};state.suggestionsGenerated=false;$('editor-section').hidden=true;fileInput.value='';$('dropTitle').textContent='Drop your resume here';$('dropHint').textContent='or click to browse your files';updateReady();$('upload-section').scrollIntoView({behavior:'smooth',block:'start'});});
 updateReady();
 
 async function togglePreview(){

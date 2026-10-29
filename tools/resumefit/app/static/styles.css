@@ -48,3 +48,6 @@ button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px
 .letter-result textarea:focus{outline:3px solid #55ad8c;outline-offset:2px}
 .letter-disclaimer{font-size:13px;line-height:1.6;color:#788782;margin:12px 0 18px}
 @media(max-width:720px){.letter-section{padding:22px 17px}.letter-fields{grid-template-columns:1fr}.letter-header h2{font-size:22px}}
+
+/* Clearly distinguish untouched copies from actual suggested replacements. */
+.edit-card .suggest-label{line-height:1.4;flex-wrap:wrap;gap:6px}

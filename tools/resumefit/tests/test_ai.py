@@ -325,3 +325,118 @@ def test_better_prompt_and_groq_reasoning_budget(monkeypatch):
     assert observed['extra_body']=={'reasoning_effort':'medium'}
     assert observed['messages'][0]['role']=='user'
     assert 'UNTRUSTED INPUT DATA' in observed['messages'][0]['content']
+
+
+
+def test_identical_professional_summary_gets_focused_second_pass(monkeypatch):
+    """User regression: a copied summary is not a successful JD-tailored edit."""
+    import json
+    original = ('Backend Software Engineer with 5+ years building cloud-native APIs for banking. '
+                'Improved payment API latency by 50% and deployment speed by 25%. '
+                'Builds AI developer tools using Python.')
+    target = ('Backend Software Engineer with 5+ years building cloud-native APIs for banking, '
+              'focused on secure payment workflows and backend API performance. '
+              'Improved payment API latency by 50%.')
+    assert ai._is_meaningful(original, target)
+    assert ai.new_digits(original, target) == []
+    candidate = _candidate('summary', original, 'p4')
+    observed = []
+    class FakeCompletion:
+        def create(self, **kwargs):
+            observed.append(kwargs)
+            payload = {'changes': []} if len(observed) == 1 else {'summary': target}
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop', message=SimpleNamespace(
+                    content=json.dumps(payload)))])
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    jd = ('Responsibilities\n- Build secure payment workflows and backend banking APIs '
+          'with low latency and high availability.')
+    changes, mode, warnings = ai.suggest([candidate], jd, original)
+    assert changes == {'p4': target}
+    assert len(observed) == 2
+    assert observed[1]['max_completion_tokens'] == 1200
+    assert not any('Summary unchanged' in warning for warning in warnings)
+
+
+def test_no_op_summary_is_not_sold_as_a_replacement(monkeypatch):
+    original = 'Backend engineer building cloud services with Java and payment APIs.'
+    summary = _candidate('summary', original, 'p4')
+    seen = 0
+    class FakeCompletion:
+        def create(self, **kwargs):
+            nonlocal seen
+            seen += 1
+            answer = '{"changes":[{"id":"p4","text":' + __import__('json').dumps(original) + '}]}' if seen == 1 else '{"summary":""}'
+            return SimpleNamespace(choices=[SimpleNamespace(
+                finish_reason='stop', message=SimpleNamespace(content=answer))])
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    updates, mode, warnings = ai.suggest([summary],
+        'Responsibilities\n- Build Java backend services for secure payment workflows', original)
+    assert not updates
+    assert seen == 2
+    assert any('Summary unchanged' in warning for warning in warnings)
+
+
+def test_summary_can_drop_unrelated_metrics_but_never_add_claims(monkeypatch):
+    original = ('Backend engineer with 5+ years in payments, improved API latency 50%. '
+                'Improved deployment speed 25% and test automation 40%.')
+    candidate = _candidate('summary', original, 'p4')
+    answer = {'value': ('Backend engineer with 5+ years developing payment APIs, '
+                        'improved API latency 50%.')}
+    class FakeCompletion:
+        def create(self, **kwargs):
+            import json
+            return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+                message=SimpleNamespace(content=json.dumps(
+                    {'changes':[{'id':'p4','text':answer['value']}]})))])
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    jd = 'Responsibilities\n- Design and maintain secure backend APIs for payment processing'
+    changes, _, _ = ai.suggest([candidate], jd, original)
+    assert changes['p4'] == answer['value']
+    answer['value'] = ('Backend engineer with 5+ years developing payment APIs, '
+                       'improved API latency 90%.')
+    changes, _, warnings = ai.suggest([candidate], jd, original)
+    assert 'p4' not in changes
+    assert any('numerical claims' in warning for warning in warnings)
+
+
+def test_summary_fallback_does_not_break_valid_bullet_edits_when_api_fails(monkeypatch):
+    import json
+    summary = _candidate('summary', 'Backend engineer building Java services.', 'p4')
+    bullet = _candidate('bullet', 'Built Java APIs for payment processing and transaction validation.', 'p5')
+    state = {'n': 0}
+    class FakeCompletion:
+        def create(self, **kwargs):
+            state['n'] += 1
+            if state['n'] == 2:
+                raise RuntimeError('mock upstream rate limited')
+            return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+                message=SimpleNamespace(content=json.dumps({'changes':[{
+                    'id': 'p5', 'text': 'Developed backend Java APIs for transaction validation within payment processing.'
+                }]})))])
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = SimpleNamespace(completions=FakeCompletion())
+    monkeypatch.delenv('AI_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'gsk-test')
+    monkeypatch.setitem(sys.modules, 'openai', SimpleNamespace(OpenAI=FakeOpenAI))
+    jd='Responsibilities\n- Build backend Java APIs for payment processing platforms'
+    changes, _, warnings = ai.suggest([summary, bullet], jd,
+                                      summary.original + '\n' + bullet.original)
+    assert changes.get('p5') == 'Developed backend Java APIs for transaction validation within payment processing.'
+    assert any('focused summary attempt was unavailable' in w for w in warnings)

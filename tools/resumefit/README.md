@@ -158,3 +158,8 @@ The default AI now favors **light, truthful refinements** of each existing exper
 ## Evidence-based JD tailoring (quality fix)
 
 ResumeFit prioritizes a focused group of the most relevant existing experience/project bullets per AI request instead of asking the model to rewrite dozens at once. Groq uses medium reasoning with a larger completion budget, nearby resume context, and an explicit JD requirement per line. The backend now rejects experience-bullet edits that merely rearrange words or swap verbs without making a specific JD connection clearer. It still protects original metrics, unsupported technologies, formatting and all unapproved sections. Some bullets will deliberately stay unchanged if the original resume lacks genuine evidence; the tool does not invent missing qualifications. No ATS dashboard or scoring feature is reintroduced.
+
+
+## Summary-specific JD tailoring
+
+If the main AI pass doesn't generate a real summary improvement, ResumeFit makes one optional, compact summary-focused follow-up call. It can prioritize different evidenced accomplishments for different JDs and omit unrelated clauses or metrics without inventing new claims. If that call fails or still has no safe improvement, the summary stays unchanged. In the editor, an unchanged editable copy is explicitly labeled as such, rather than portrayed as an AI-tailored replacement. This may consume one additional AI request per tailoring attempt. No ATS score was added.
