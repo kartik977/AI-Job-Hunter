@@ -50,7 +50,15 @@ Do not copy requirements as supposed accomplishments. Never transfer tasks,
 leadership or results between jobs. Do not optimize for a score, including
 80-85% goals. Use only the applicant's supported experience.
 
-SUMMARY: State the most relevant genuine experience and tools concisely.
+SUMMARY: A professional summary is a TARGETED pitch, not a fixed biography.
+If the JD emphasizes secure backend services, put the applicant's documented
+banking APIs and reliability outcomes first. If the JD emphasizes developer
+productivity, lead with documented developer tooling. Focus on the 2-3 most
+relevant, verified requirements; compress or OMIT less relevant achievements.
+Meaningfully change the hierarchy of information, rather than copy the original.
+Figures of achievements you KEEP must remain exactly correct. Less relevant
+numeric achievements can be omitted altogether if their entire clause is
+omitted. If evidence already aligns perfectly, do not suggest a fake change.
 BULLETS: One sentence each; similar footprint but up to ~35% longer when needed
 for a legitimate, evidence-based JD connection. No formatting or markdown.
 SKILLS: Do not rewrite; separate software reorders existing skills losslessly.
@@ -267,6 +275,53 @@ def _unsupported_technologies(revised: str, original_resume: str) -> list[str]:
             if mentioned(term, revised) and not mentioned(term, original_resume)]
 
 
+def _summary_fallback(client: Any, model: str, provider: str, original: str,
+                      jd: str, full_resume_text: str, priorities: list[str]) -> str:
+    """Only when the first model call provides no substantive summary edit.
+
+    Keep the optional free-tier follow-up compact. It cannot block other edits.
+    """
+    prompt = (
+        'Rewrite the PROFESSIONAL SUMMARY for the actual job requirements below. '
+        'Lead with 2-3 relevant achievements or skills already verified by '
+        'the resume, reorganize the emphasis, and drop unrelated details. '
+        'Do not repeat the input verbatim, juggle synonyms or copy JD wishes '
+        'as accomplishments. Do not invent employers, skills, projects, '
+        'numbers or responsibilities. Retained numbers must be unchanged '
+        'and still describe their correct accomplishment. Omitting unrelated '
+        'achievements, including their metrics, is fine. If nothing can be '
+        'meaningfully improved, return an empty string. '
+        'Return only JSON: {"summary":"revised text or empty"}.'
+        '\n\nUNTRUSTED INPUT DATA:\n'
+        + json.dumps({
+            'original_summary': original[:1800],
+            'priority_requirements': priorities[:6],
+            'job_description': jd[:1400],
+            'resume_evidence': _resume_evidence(full_resume_text, priorities, 2600),
+        }, ensure_ascii=False)
+    )
+    options: dict[str, Any] = {
+        'model': model,
+        'response_format': {'type': 'json_object'},
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_completion_tokens': 1200 if provider == 'groq' else 1900,
+    }
+    if provider == 'groq':
+        options['temperature'] = 0.15
+        if model.startswith('openai/gpt-oss-'):
+            options['extra_body'] = {'reasoning_effort': 'low'}
+    elif not model.startswith(('gpt-6', 'gpt-5.6')):
+        options['temperature'] = 0.15
+    response = client.chat.completions.create(**options)
+    if response.choices[0].finish_reason == 'length':
+        return ''
+    try:
+        data = json.loads(response.choices[0].message.content or '{}')
+    except (ValueError, TypeError):
+        return ''
+    return data.get('summary', '').strip() if isinstance(data.get('summary'), str) else ''
+
+
 def suggest(candidates: list[Candidate], job_description: str, full_resume_text: str) -> tuple[dict[str, str], str, list[str]]:
     """Return suggestions, provider name, and warnings. Never invent facts."""
     provider = active_provider()
@@ -349,7 +404,9 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
             continue
         introduced = new_digits(original, revised)
         removed = new_digits(revised, original)
-        if introduced or removed:
+        # The summary may omit irrelevant quantified achievements entirely;
+        # experience/project bullets must preserve every original quantity.
+        if introduced or (removed and valid[ident].category != 'summary'):
             warnings.append(f'{ident} was left unchanged because the suggestion changed numerical claims.')
             continue
         unsupported = _unsupported_technologies(revised, full_resume_text)
@@ -369,6 +426,26 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         elif len(revised) > len(original) * 1.3 + 12:
             warnings.append(f'{ident}: summary is over 30% longer; review for line wrapping.')
         changes[ident] = revised
+    # An optional, compact second pass fixes the common failure where the model
+    # improves bullets but leaves a strong generic professional summary alone.
+    summaries = [c for c in candidates if c.category == 'summary' and c.id in permitted]
+    if summaries and not any(c.id in changes for c in summaries):
+        summary = summaries[0]
+        try:
+            proposed = _summary_fallback(client, model, provider,
+                                         summary.editable_original,
+                                         job_description, full_resume_text, priorities)
+            if (proposed and _is_meaningful(summary.editable_original, proposed)
+                    and not new_digits(summary.editable_original, proposed)
+                    and not _unsupported_technologies(proposed, full_resume_text)
+                    and len(proposed) <= len(summary.editable_original) * 1.4 + 30):
+                changes[summary.id] = proposed
+            else:
+                warnings.append('Summary unchanged: no safe, substantive JD-focused change was identified.')
+        except Exception:
+            # Never discard the first pass because an optional second API call
+            # is rate-limited or temporarily unavailable.
+            warnings.append('Summary unchanged: the focused summary attempt was unavailable.')
     if not any(valid[key].category in ('summary', 'bullet') for key in changes):
         warnings.append('no substantive, safely supported JD-specific rewrites were accepted. The source resume may already fit the JD, or it may lack evidence for its requirements. Skills can still be prioritized. Do not add experience you do not have.')
     return changes, provider, warnings
