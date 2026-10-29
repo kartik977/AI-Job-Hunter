@@ -347,9 +347,6 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         revised = entry['text'].strip()
         if not revised or revised == original or not _is_meaningful(original, revised):
             continue
-        if valid[ident].category == 'bullet' and not _jd_specific_gain(original, revised, priorities):
-            warnings.append(f'{ident}: a cosmetic rewrite was skipped because it adds no clearer JD relevance.')
-            continue
         introduced = new_digits(original, revised)
         removed = new_digits(revised, original)
         if introduced or removed:
@@ -358,6 +355,9 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         unsupported = _unsupported_technologies(revised, full_resume_text)
         if unsupported:
             warnings.append(f'{ident} was left unchanged because a claimed technology is not evidenced in the original resume.')
+            continue
+        if valid[ident].category == 'bullet' and not _jd_specific_gain(original, revised, priorities):
+            warnings.append(f'{ident}: a cosmetic rewrite was skipped because it adds no clearer JD relevance.')
             continue
         # Experience bullets should still read like the original resume, not
         # like a new project or an expanded job description. Keep each close
@@ -370,5 +370,5 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
             warnings.append(f'{ident}: summary is over 30% longer; review for line wrapping.')
         changes[ident] = revised
     if not any(valid[key].category in ('summary', 'bullet') for key in changes):
-        warnings.append('No substantive, safely supported JD-specific rewrites were accepted. The source resume may already fit the JD, or it may lack evidence for its requirements. Skills can still be prioritized. Do not add experience you do not have.')
+        warnings.append('no substantive, safely supported JD-specific rewrites were accepted. The source resume may already fit the JD, or it may lack evidence for its requirements. Skills can still be prioritized. Do not add experience you do not have.')
     return changes, provider, warnings
