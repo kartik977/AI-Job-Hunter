@@ -153,3 +153,8 @@ To return to free Groq, remove AI_PROVIDER or set it to groq.
 ## Natural JD-focused experience rewriting
 
 The default AI now favors **light, truthful refinements** of each existing experience/project bullet: foreground relevant work for the JD, but keep the same task, scope, employer, technologies and results. It should not turn a contribution into ownership or copy responsibilities from a different role. Bullets rewritten much longer (over roughly 20% plus a short allowance) or drastically shorter are rejected for review; unchanged bullets remain untouched. Summary rewriting and existing skills prioritization still work as before. This is not a guaranteed ATS score or an instruction to add missing expertise.
+
+
+## Evidence-based JD tailoring (quality fix)
+
+ResumeFit prioritizes a focused group of the most relevant existing experience/project bullets per AI request instead of asking the model to rewrite dozens at once. Groq uses medium reasoning with a larger completion budget, nearby resume context, and an explicit JD requirement per line. The backend now rejects experience-bullet edits that merely rearrange words or swap verbs without making a specific JD connection clearer. It still protects original metrics, unsupported technologies, formatting and all unapproved sections. Some bullets will deliberately stay unchanged if the original resume lacks genuine evidence; the tool does not invent missing qualifications. No ATS dashboard or scoring feature is reintroduced.
