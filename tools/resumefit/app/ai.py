@@ -305,6 +305,14 @@ def suggest(candidates: list[Candidate], job_description: str, full_resume_text:
         ],
     }
     if provider == 'groq':
+        # Groq's GPT-OSS prompting guidance favors instructions in the user
+        # message for reasoning tasks. Keep JD explicitly untrusted input.
+        request['messages'] = [{
+            'role': 'user',
+            'content': INSTRUCTIONS + '\n\nUNTRUSTED INPUT DATA:\n'
+                       + json.dumps(payload, ensure_ascii=False),
+        }]
+    if provider == 'groq':
         request['temperature'] = 0.15
         request['max_completion_tokens'] = 3200
         if model.startswith('openai/gpt-oss-'):

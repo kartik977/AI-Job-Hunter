@@ -69,9 +69,9 @@ def test_groq_compacts_large_input_without_losing_mappings(monkeypatch):
 def test_groq_bounds_many_long_bullets():
     lines = []
     for i in range(70):
-        lines.append(Candidate(id=f'p{i}', index=i, category='bullet', original='A' * 450,
-                               editable_original='A' * 450, locked_prefix='', section='experience', style='List Bullet'))
-    payload, warnings = ai._compact_payload(lines, 'JD ' * 100, 'resume ' * 500, 'groq')
+        lines.append(Candidate(id=f'p{i}', index=i, category='bullet', original='Built reliable Java APIs for payments. ' + 'A' * 400,
+                               editable_original='Built reliable Java APIs for payments. ' + 'A' * 400, locked_prefix='', section='experience', style='List Bullet'))
+    payload, warnings = ai._compact_payload(lines, 'Responsibilities\n- Build reliable Java APIs for secure payment workflows', 'resume ' * 500, 'groq')
     assert 0 < len(payload['editable_lines']) < len(lines)
     assert any('remaining lines' in x for x in warnings)
     assert all('id' in r for r in payload['editable_lines'])
@@ -271,7 +271,7 @@ def test_light_jd_reframe_is_accepted_and_expansive_rewrite_is_rejected(monkeypa
 def test_prompts_prevent_experience_transfers_and_score_chasing():
     instructions = ai.INSTRUCTIONS
     assert 'SAME job/project' in instructions
-    assert 'NEVER transfer tasks' in instructions
+    assert 'never transfer tasks' in instructions.lower()
     assert 'Do not optimize for a score' in instructions
     assert '4-10 meaningful' in instructions
 
@@ -323,3 +323,5 @@ def test_better_prompt_and_groq_reasoning_budget(monkeypatch):
                'Built REST APIs using Java.')
     assert observed['max_completion_tokens']==3200
     assert observed['extra_body']=={'reasoning_effort':'medium'}
+    assert observed['messages'][0]['role']=='user'
+    assert 'UNTRUSTED INPUT DATA' in observed['messages'][0]['content']
