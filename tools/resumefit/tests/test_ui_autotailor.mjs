@@ -1,10 +1,11 @@
 // Browser-free integration test: Analyze must automatically start JD tailoring.
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const path = require('node:path');
-const app = fs.readFileSync(path.join(__dirname, '../app/static/app.js'), 'utf8');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const app = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../app/static/app.js'), 'utf8');
 
 class Element {
   constructor(tag = 'div') {
