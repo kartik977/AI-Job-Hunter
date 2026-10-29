@@ -51,3 +51,29 @@ button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px
 
 /* Clearly distinguish untouched copies from actual suggested replacements. */
 .edit-card .suggest-label{line-height:1.4;flex-wrap:wrap;gap:6px}
+
+
+/* One-click JD tailoring: transparent selected-edit change report */
+.change-report{margin:20px 0 24px;padding:25px 26px;border:1px solid #cde3d5;border-radius:14px;background:#f8fcf9;box-shadow:var(--shadow)}
+.change-report[hidden]{display:none}
+.change-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.change-report-eyebrow{display:block;color:#2c8060;font-size:11px;font-weight:800;letter-spacing:1.2px}
+.change-report-head h3{font-family:Manrope,sans-serif;margin:8px 0;font-size:23px;letter-spacing:-.45px;color:var(--ink)}
+.change-report-head p{color:var(--ink2);font-size:14px;line-height:1.5;margin:0}
+.change-report-count{font-size:12px;font-weight:800;white-space:nowrap;padding:7px 11px;border:1px solid #cbe4d2;background:#e9f5ec;color:#236e4d;border-radius:99px}
+.change-report-list{display:grid;gap:13px;margin-top:19px}
+.change-entry{border:1px solid #d7e9dd;border-radius:11px;background:white;padding:16px 18px}
+.change-entry.change-excluded{opacity:.72;border-style:dashed}
+.change-entry-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.change-entry-head strong{color:var(--ink);font-size:14px}
+.change-entry-status{font-weight:750;font-size:11px;border-radius:100px;padding:5px 10px;background:#e8f5e9;color:#24704e}
+.change-excluded .change-entry-status{background:#f0f1ef;color:#6f7b72}
+.change-line{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;margin:10px 0}
+.change-line-label{font-size:10px;font-weight:800;letter-spacing:1px;color:#80918a;padding-top:4px}
+.change-line p{margin:0;font-size:13px;line-height:1.6;overflow-wrap:anywhere;color:#354d40}
+.change-line:last-of-type p{font-weight:650}
+.change-explanation{margin:8px 0 0;font-size:13px;color:#386d50;line-height:1.6;overflow-wrap:anywhere}
+.change-jd{border-left:3px solid #6ab48a;padding-left:11px;margin:10px 0 0;color:#577269;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.change-report-note,.change-empty{font-size:12px;color:#6f8278;line-height:1.6;margin:16px 0 0}
+.edit-reason{font-size:12px;line-height:1.6;color:#366d50;background:#ecf7ef;border:1px solid #d5e9d9;padding:9px 11px;border-radius:7px;margin-top:10px}
+@media(max-width:720px){.change-report{padding:19px 15px}.change-report-head{flex-direction:column}.change-report-head h3{font-size:20px}.change-entry{padding:14px 12px}.change-line{grid-template-columns:1fr;gap:2px}.change-entry-head{flex-direction:column;align-items:flex-start}}

@@ -55,22 +55,30 @@
             <div class="jd-footer"><span id="jdCount">0 characters</span><span>Minimum 50 characters</span></div>
           </div>
         </div>
-        <div class="form-footer"><div class="privacy-notice"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Files are stored temporarily. AI mode sends resume text and the JD to your configured AI provider.</span></div><button id="analyzeBtn" class="btn btn-primary" disabled>Analyze resume <span>→</span></button></div>
+        <div class="form-footer"><div class="privacy-notice"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Files are stored temporarily. AI mode sends resume text and the JD to your configured AI provider.</span></div><button id="analyzeBtn" class="btn btn-primary" disabled>✧ Tailor Resume <span>→</span></button></div>
         <div id="mainNotice" class="notice" hidden role="alert"></div>
       </section>
 
       <section class="editor-section" id="editor-section" hidden>
         <div class="section-line"><span class="section-step">02</span><h2>Review every suggested change</h2><span class="section-hint">You approve exactly what gets edited</span></div>
         <div class="summary-strip"><div class="filename-row"><div class="doc-icon">W</div><div><strong id="workingFilename">resume.docx</strong><div class="muted">Your original file stays unchanged</div></div></div><div class="counts"><span><strong id="totalLines">0</strong> editable lines</span><span><strong id="acceptedLines">0</strong> selected edits</span></div><button id="restartBtn" class="btn btn-quiet">Start over</button></div>
-        <div class="editor-actions"><div><h3>JD tailoring starts automatically</h3><p>After analyzing, AI proposes edits only to the summary, skills and bullet points. Unchanged lines are clearly labeled. Use the button to regenerate suggestions.</p></div><button id="tailorBtn" class="btn btn-dark">✧ Generate suggestions <span>→</span></button></div>
+        <div class="editor-actions"><div><h3 id="resultTitle">JD tailoring result</h3><p>AI updates only the summary, skills and experience/project bullets when supported by your resume. Approved changes are selected for export; uncheck anything you want to keep original.</p></div></div>
         <div id="editorNotice" class="notice" hidden role="alert"></div>
+        <section id="changeReport" class="change-report" hidden aria-labelledby="changeReportTitle">
+          <div class="change-report-head">
+            <div><span class="change-report-eyebrow">TRANSPARENT EDIT REPORT</span><h3 id="changeReportTitle">What changed and why</h3><p id="changeReportSummary">Every entry below reflects a real suggestion, not a generated match score.</p></div>
+            <span id="changeReportCount" class="change-report-count">0 edits</span>
+          </div>
+          <div id="changeReportList" class="change-report-list"></div>
+          <p class="change-report-note">JD connections explain the wording choice, not verified qualifications or employer ATS results. Review each claim before applying. Unchecked changes are excluded from the downloaded resume.</p>
+        </section>
         <div class="workspace">
           <div class="review-column">
             <div class="review-head"><div class="tabs" role="tablist" aria-label="Filter editable lines"><button data-filter="all" class="tab selected">All <span id="allCount">0</span></button><button data-filter="summary" class="tab">Summary</button><button data-filter="skills" class="tab">Skills</button><button data-filter="bullet" class="tab">Bullets</button></div><button id="clearBtn" class="clear-action">Uncheck all</button></div>
             <div class="review-sub">AI tailoring begins automatically after analysis. Only text marked Suggested replacement or Manually edited is a change. “No change” refers to text, not a JD match score. Unchecked entries stay exactly as they were.</div>
             <div id="lineList" class="line-list"></div>
           </div>
-          <aside class="preview-column"><div class="preview-header"><div><strong id="previewTitle">Original format preview</strong><div class="muted" id="previewDesc">A reference of your uploaded Word file</div></div><button id="previewToggle" class="preview-toggle">Preview my edits ↗</button></div><div id="previewFrame"><div class="preview-wait">Preview becomes available once your DOCX is analyzed.</div></div><div class="preview-note">Word formatting is retained, but significantly longer text can change line wrapping and page count. Always review the exported file.</div></aside>
+          <aside class="preview-column"><div class="preview-header"><div><strong id="previewTitle">Tailored format preview</strong><div class="muted" id="previewDesc">Your original Word layout with the selected edits</div></div><button id="previewToggle" class="preview-toggle">Show original ↩</button></div><div id="previewFrame"><div class="preview-wait">Preview becomes available once your DOCX is analyzed.</div></div><div class="preview-note">Word formatting is retained, but significantly longer text can change line wrapping and page count. Always review the exported file.</div></aside>
         </div>
         <section class="letter-section" id="coverLetterSection" aria-labelledby="coverLetterTitle">
           <div class="letter-topline"><span class="letter-step">04 · MATCHING COVER LETTER</span><span class="letter-hint">Included with your application</span></div>
@@ -90,6 +98,6 @@
       <footer><span>ResumeFit <span class="muted">/ Format-first editor</span></span><span>Your facts stay yours. Review every edit before applying.</span></footer>
     </main>
   </div>
-  <script src="/static/app.js?v=20261028-auto-tailor"></script>
+  <script src="/static/app.js?v=20261028-one-click"></script>
 </body>
 </html>
