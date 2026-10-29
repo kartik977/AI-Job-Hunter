@@ -71,12 +71,16 @@ async function analyze() {
   const result=await jsonFetch('/api/analyze',{method:'POST',body});
   state.session=result.session_id;state.candidates=result.candidates;state.originalName=result.filename;state.pdfEnabled=result.pdf_enabled;
   state.edits={};state.changeDetails={};state.suggestionsGenerated=false;state.previewEdited=false;state.previewStale=false;
-  $('changeReport').hidden=true;$('previewToggle').textContent='Preview my edits ↗';
+  $('changeReport').hidden=true;$('resultTitle').textContent='Finding JD connections…';
+  $('previewTitle').textContent='Original format preview';
+  $('previewDesc').textContent='A reference of your uploaded Word file';
+  $('previewToggle').textContent='Preview my edits ↗';
   for (const c of state.candidates) state.edits[c.id]={text:c.editable_original,checked:false};
   $('workingFilename').textContent=result.filename; counts();render();
   $('editor-section').hidden=false;$('editor-section').scrollIntoView({behavior:'smooth',block:'start'});
   if (state.pdfEnabled){const iframe=document.createElement('iframe');iframe.title='Preview of original resume';iframe.src='/api/preview/'+encodeURIComponent(state.session);$('previewFrame').replaceChildren(iframe);}else{$('previewFrame').textContent='PDF preview requires LibreOffice. DOCX editing is still available.';$('pdfBtn').disabled=true;$('previewToggle').disabled=true;}
   if(!result.ai_enabled) {
+   $('resultTitle').textContent='Tailoring unavailable — original resume only';
    notice($('editorNotice'),'AI is not configured. The original resume was read but has NOT been tailored. Configure GROQ_API_KEY in Render, or manually edit permitted text.','warning');
   }else{
    btn.textContent='Tailoring resume to JD…';
@@ -146,9 +150,11 @@ async function generateSuggestions(){
   render();counts();
   const total=summary+skills+bullets;
   if(!total){
+   $('resultTitle').textContent='No evidence-supported changes found';
    notice($('editorNotice'),'No evidence-supported JD edits were produced. The original resume remains unchanged; no tailored file is being claimed. '+(result.warnings||[]).join(' '),'warning');
    return;
   }
+  $('resultTitle').textContent='Your tailored resume is ready for review';
   let message='Tailored resume ready: '+summary+' summary, '+skills+' skill list(s), '+bullets+' experience/project bullet(s) updated. All edits are selected for export; review the changes below and uncheck anything inaccurate.';
   if(result.warnings?.length)message+=' '+result.warnings.join(' ');
   notice($('editorNotice'),message);
@@ -160,6 +166,7 @@ async function generateSuggestions(){
    $('previewToggle').disabled=true;
   }
  }catch(e){
+  $('resultTitle').textContent='Tailoring failed — original resume only';
   notice($('editorNotice'),'AI tailoring did not complete: '+e.message+'. Your original resume is unchanged. You can retry with the main Tailor Resume button.','error');
  }
 }
