@@ -418,7 +418,7 @@ def test_summary_can_drop_unrelated_metrics_but_never_add_claims(monkeypatch):
 def test_summary_fallback_does_not_break_valid_bullet_edits_when_api_fails(monkeypatch):
     import json
     summary = _candidate('summary', 'Backend engineer building Java services.', 'p4')
-    bullet = _candidate('bullet', 'Built Java APIs for payment processing.', 'p5')
+    bullet = _candidate('bullet', 'Built Java APIs for payment processing and transaction validation.', 'p5')
     state = {'n': 0}
     class FakeCompletion:
         def create(self, **kwargs):
@@ -427,7 +427,7 @@ def test_summary_fallback_does_not_break_valid_bullet_edits_when_api_fails(monke
                 raise RuntimeError('mock upstream rate limited')
             return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
                 message=SimpleNamespace(content=json.dumps({'changes':[{
-                    'id': 'p5', 'text': 'Built backend Java APIs for payment processing.'
+                    'id': 'p5', 'text': 'Developed backend Java APIs for transaction validation within payment processing.'
                 }]})))])
     class FakeOpenAI:
         def __init__(self, **kwargs):
@@ -438,5 +438,5 @@ def test_summary_fallback_does_not_break_valid_bullet_edits_when_api_fails(monke
     jd='Responsibilities\n- Build backend Java APIs for payment processing platforms'
     changes, _, warnings = ai.suggest([summary, bullet], jd,
                                       summary.original + '\n' + bullet.original)
-    assert changes.get('p5') == 'Built backend Java APIs for payment processing.'
+    assert changes.get('p5') == 'Developed backend Java APIs for transaction validation within payment processing.'
     assert any('focused summary attempt was unavailable' in w for w in warnings)
