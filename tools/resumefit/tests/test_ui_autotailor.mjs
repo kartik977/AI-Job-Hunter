@@ -79,6 +79,7 @@ test('one Tailor Resume click performs analyze, AI tailoring and change report',
   const r=await runApp({p1:'Backend Software Engineer delivering Java backend APIs for secure banking payments.'});
   assert.deepEqual(r.calls,['/api/analyze','/api/tailor']);
   assert.equal(r.get('acceptedLines').textContent,1);
+  assert.equal(r.get('resultTitle').textContent,'Your tailored resume is ready for review');
   assert.equal(r.get('changeReport').hidden,false);
   assert.equal(r.get('changeReportList').children.length,1);
   const entry=r.get('changeReportList').children[0];
@@ -115,6 +116,8 @@ test('no AI suggestions means no deceptive tailored resume or no-op score',async
   assert.deepEqual(r.calls,['/api/analyze','/api/tailor']);
   assert.equal(r.get('acceptedLines').textContent,0);
   assert.equal(r.get('changeReportList').children[0].textContent.startsWith('No evidence-supported'),true);
+  assert.equal(r.get('resultTitle').textContent,'No evidence-supported changes found');
+  assert.equal(r.get('previewTitle').textContent,'Original format preview');
   assert.match(r.get('editorNotice').textContent,/No evidence-supported JD edits/);
   assert.equal(r.get('previewFrame').children.length,0);
   for(const card of r.get('lineList').children){
@@ -126,6 +129,7 @@ test('no AI suggestions means no deceptive tailored resume or no-op score',async
 test('a failed AI provider request does not claim successful tailoring',async()=>{
   const r=await runApp(new Error('Rate limit reached'));
   assert.deepEqual(r.calls,['/api/analyze','/api/tailor']);
+  assert.equal(r.get('resultTitle').textContent,'Tailoring failed — original resume only');
   assert.match(r.get('editorNotice').textContent,/AI tailoring did not complete/);
   assert.match(r.get('editorNotice').textContent,/Rate limit reached/);
   assert.equal(r.get('acceptedLines').textContent,0);
